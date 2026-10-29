@@ -114,8 +114,9 @@ def plan_video(info: VideoInfo, res: int | None = None) -> VideoPlan:
     video = max(candidates, key=_video_key)
     hdr = video.dynamic_range != "SDR"
 
-    m4a = [f for f in info.audio_formats if f.acodec.startswith("mp4a")]
-    audio = max(m4a or info.audio_formats, key=lambda f: f.abr)
+    pool = _audio_pool(info)
+    m4a = [f for f in pool if f.acodec.startswith("mp4a")]
+    audio = max(m4a or pool, key=lambda f: f.abr)
 
     return VideoPlan(
         video=video,
@@ -128,8 +129,14 @@ def plan_video(info: VideoInfo, res: int | None = None) -> VideoPlan:
     )
 
 
+def _audio_pool(info: VideoInfo) -> tuple[Fmt, ...]:
+    """Evita o áudio "-drc" (faixa dinâmica comprimida) quando há a versão normal."""
+    normal = tuple(f for f in info.audio_formats if not f.format_id.endswith("-drc"))
+    return normal or info.audio_formats
+
+
 def best_audio(info: VideoInfo) -> Fmt:
-    return max(info.audio_formats, key=lambda f: f.abr)
+    return max(_audio_pool(info), key=lambda f: f.abr)
 
 
 def quality_label(res: int) -> str:

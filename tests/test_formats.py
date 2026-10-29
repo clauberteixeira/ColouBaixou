@@ -87,6 +87,16 @@ def test_missing_size_estimated_from_tbr():
     assert p.est_bytes == int((1500 + 129) * 125 * 754)
 
 
+def test_drc_audio_is_avoided():
+    i = parse_info(DATA)
+    m4a = next(f for f in i.audio_formats if f.format_id == "140")
+    opus = next(f for f in i.audio_formats if f.format_id == "251")
+    drc = (dataclasses.replace(m4a, format_id="140-drc", abr=200), dataclasses.replace(opus, format_id="251-drc", abr=300))
+    i = info(audio_formats=drc + i.audio_formats)
+    assert plan_video(i, 1080).audio.format_id == "140"
+    assert best_audio(i).format_id == "251"
+
+
 def test_best_audio_for_mp3_is_highest_abr():
     assert best_audio(parse_info(DATA)).format_id == "251"
 
