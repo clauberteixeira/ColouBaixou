@@ -1,0 +1,21 @@
+{
+  "id": "abcdefghijk",
+  "title": "Vídeo de Teste",
+  "channel": "Canal Teste",
+  "uploader": "Canal Teste",
+  "duration": 754,
+  "thumbnail": "https://i.ytimg.com/vi/abcdefghijk/maxresdefault.jpg",
+  "live_status": "not_live",
+  "formats": [
+    {"format_id": "sb0", "ext": "mhtml", "vcodec": "none", "acodec": "none", "width": 160, "height": 90, "fps": null, "dynamic_range": null, "tbr": null, "abr": null, "filesize": null, "protocol": "mhtml"},
+    {"format_id": "140", "ext": "m4a", "vcodec": "none", "acodec": "mp4a.40.2", "width": null, "height": null, "fps": null, "dynamic_range": null, "tbr": null, "abr": 129, "filesize": 12000000, "protocol": "https"},
+    {"format_id": "251", "ext": "webm", "vcodec": "none", "acodec": "opus", "width": null, "height": null, "fps": null, "dynamic_range": null, "tbr": null, "abr": 140, "filesize": 13000000, "protocol": "https"},
+    {"format_id": "137", "ext": "mp4", "vcodec": "avc1.640028", "acodec": "none", "width": 1920, "height": 1080, "fps": 30, "dynamic_range": "SDR", "tbr": 4000, "abr": null, "filesize": 300000000, "protocol": "https"},
+    {"format_id": "248", "ext": "webm", "vcodec": "vp09.00.40.08", "acodec": "none", "width": 1920, "height": 1080, "fps": 30, "dynamic_range": "SDR", "tbr": 2500, "abr": null, "filesize": 200000000, "protocol": "https"},
+    {"format_id": "313", "ext": "webm", "vcodec": "vp09.00.51.08", "acodec": "none", "width": 3840, "height": 2160, "fps": 30, "dynamic_range": "SDR", "tbr": 18000, "abr": null, "filesize": 1500000000, "protocol": "https"},
+    {"format_id": "315", "ext": "webm", "vcodec": "vp09.00.51.08", "acodec": "none", "width": 3840, "height": 2160, "fps": 60, "dynamic_range": "SDR", "tbr": 26000, "abr": null, "filesize": 2000000000, "protocol": "https"},
+    {"format_id": "337", "ext": "webm", "vcodec": "vp09.02.51.10", "acodec": "none", "width": 3840, "height": 2160, "fps": 60, "dynamic_range": "HDR10", "tbr": 30000, "abr": null, "filesize": 2200000000, "protocol": "https"},
+    {"format_id": "571", "ext": "mp4", "vcodec": "av01.0.16M.08", "acodec": "none", "width": 7680, "height": 4320, "fps": 60, "dynamic_range": "SDR", "tbr": 60000, "abr": null, "filesize": 5000000000, "protocol": "https"},
+    {"format_id": "136", "ext": "mp4", "vcodec": "avc1.4d401f", "acodec": "none", "width": 1280, "height": 720, "fps": 30, "dynamic_range": "SDR", "tbr": 1500, "abr": null, "filesize": 100000000, "protocol": "https"}
+  ]
+}
