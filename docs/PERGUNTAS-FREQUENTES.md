@@ -41,7 +41,7 @@ Durante a transmissão, não. Depois que ela termina e fica salva no canal, sim.
 
 ### Parou de funcionar de repente.
 
-O YouTube muda o site com frequência. O programa **atualiza o motor de download sozinho** ao abrir. Feche e abra de novo, ou clique em **⚙ → Atualizar agora**. Se continuar, [abra um relato de problema](https://github.com/clauberteixeira/ColouBaixou/issues/new/choose).
+O YouTube muda o site com frequência. O programa **atualiza o motor de download sozinho** ao abrir. Feche e abra de novo. Se aparecer a faixa *"Nova versão disponível"*, clique em **Atualizar agora**. Se continuar, [abra um relato de problema](https://github.com/clauberteixeira/ColouBaixou/issues/new/choose).
 
 ### Preciso de internet?
 

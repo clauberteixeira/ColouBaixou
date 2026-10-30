@@ -9,6 +9,7 @@
 - [Baixar de uma playlist ou Mix](#baixar-de-uma-playlist-ou-mix)
 - [A fila de downloads](#a-fila-de-downloads)
 - [Onde os arquivos ficam](#onde-os-arquivos-ficam)
+- [Atualizações](#atualizações)
 
 ![Tela principal](images/tela-principal-light.png)
 
@@ -86,7 +87,7 @@ Os vídeos baixam **um de cada vez**, na ordem. Você pode continuar colando lin
 
 ## Onde os arquivos ficam
 
-A pasta aparece no topo, em **📁 Salvando em**. O padrão é `Downloads\YouTube`. Para trocar, clique em **Alterar** e escolha outra pasta. A escolha fica gravada para as próximas vezes.
+A pasta aparece no topo, em **📁 Salvando em**. O padrão é `Downloads\YouTube`. Para trocar, clique em **📂 Escolher pasta** (ao lado de *Abrir pasta*) e escolha outra. A escolha fica gravada para as próximas vezes.
 
 Dentro dela, tudo vai organizado:
 
@@ -104,6 +105,17 @@ Se você baixar o mesmo vídeo de novo, o arquivo novo ganha um número, como `T
 
 **📁 Abrir pasta** abre a pasta do último arquivo baixado.
 
-O botão **⚙** (canto superior direito) também permite trocar a pasta e **atualizar o motor de download** na hora.
+O botão **⚙** (canto superior direito) mostra a pasta, a versão do programa e os links de ajuda.
 
 ![Configurações](images/configuracoes-light.png)
+
+## Atualizações
+
+Você não precisa fazer nada:
+
+- **Motor de download:** se atualiza sozinho toda vez que o programa abre. É ele que acompanha as mudanças do YouTube.
+![Aviso de nova versão](images/atualizacao-dark.png)
+
+- **ColouBaixô:** quando sai uma versão nova, aparece uma faixa no topo: *"🎉 Nova versão disponível!"*. Clique em **Atualizar agora**. O programa baixa a versão nova, instala e **abre de novo sozinho**. Se quiser saber o que mudou antes, clique em **Ver novidades**.
+
+Os downloads em andamento são cancelados ao atualizar (o programa pergunta antes).

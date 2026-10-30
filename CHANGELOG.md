@@ -11,5 +11,6 @@ Primeira versão.
 - **Adapta-se ao computador**: usa a placa de vídeo quando existir e evita conversões demoradas em computadores mais simples.
 - **Download acelerado** (em partes paralelas).
 - Se o YouTube bloquear temporariamente, a fila **pausa sozinha** e continua quando você mandar.
-- O motor de download **se atualiza sozinho**.
+- O motor de download **se atualiza sozinho**, e o próprio programa avisa e **se atualiza com um clique** quando sai versão nova.
+- Rodapé e seção "Sobre" com o desenvolvedor e links de ajuda.
 - Instalador leve (~64 MB), sem pedir senha de administrador.
