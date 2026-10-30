@@ -54,7 +54,7 @@ class App(ctk.CTk):
         icon = resource_dir() / "assets" / "icon.ico"
         if icon.exists():
             self.after(250, lambda: self.iconbitmap(str(icon)))  # o CTk troca o ícone ao abrir
-        self.geometry("760x660")
+        self.geometry("840x680")
         self.minsize(640, 540)
 
         self.events: queue.Queue = queue.Queue()

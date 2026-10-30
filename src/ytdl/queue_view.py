@@ -85,7 +85,7 @@ class QueueView(ctk.CTkFrame):
                                  selectmode="browse")
         headings = {"check": "", "title": "Título", "channel": "Canal", "kind": "Formato",
                     "status": "Situação", "remove": ""}
-        widths = {"check": 30, "title": 250, "channel": 110, "kind": 70, "status": 200, "remove": 30}
+        widths = {"check": 30, "title": 230, "channel": 100, "kind": 70, "status": 270, "remove": 30}
         self.tree.heading("#0", text="")
         self.tree.column("#0", width=ROW_THUMB[0] + 22, stretch=False)
         for col in COLUMNS:

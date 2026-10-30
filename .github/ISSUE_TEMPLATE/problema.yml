@@ -1,0 +1,43 @@
+name: 🐞 Relatar um problema
+description: Algo não funcionou como deveria
+title: "[Problema] "
+labels: ["problema"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Obrigado por avisar! Quanto mais detalhes, mais fácil de resolver.
+        Antes, tente **⚙ → Atualizar agora** no programa e veja as [Perguntas frequentes](https://github.com/clauberteixeira/ColouBaixou/blob/main/docs/PERGUNTAS-FREQUENTES.md).
+  - type: textarea
+    id: oque
+    attributes:
+      label: O que aconteceu?
+      description: Conte o que você fez e o que apareceu na tela (pode colar a mensagem de erro).
+    validations:
+      required: true
+  - type: input
+    id: link
+    attributes:
+      label: Link do vídeo (se for um vídeo específico)
+      placeholder: https://www.youtube.com/watch?v=...
+  - type: dropdown
+    id: formato
+    attributes:
+      label: Estava baixando em
+      options:
+        - MP4 (vídeo)
+        - MP3 (áudio)
+        - Playlist / vários vídeos
+        - Não estava baixando (problema ao abrir/instalar)
+  - type: input
+    id: windows
+    attributes:
+      label: Versão do Windows
+      placeholder: Windows 11 / Windows 10
+  - type: textarea
+    id: log
+    attributes:
+      label: Arquivo de registro (opcional)
+      description: |
+        Aperte `Win + R`, cole `%LOCALAPPDATA%\YoutubeForDownload\logs` e dê Enter.
+        Arraste o arquivo `app.log` para cá.

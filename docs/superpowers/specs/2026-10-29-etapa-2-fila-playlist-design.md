@@ -130,7 +130,8 @@ Pedido do usuário: o programa vai ser passado para outras pessoas (esposa, sogr
 - **Sem aceleração**:
   - "Melhor disponível" passa a ser a maior resolução que existe em H.264 SDR, ou seja, sem conversão (normalmente 1080p).
   - Nessa resolução, o vídeo H.264 é preferido mesmo com menos quadros por segundo.
-  - Resoluções acima disso continuam no seletor, com o rótulo "(lenta neste PC)".
+  - Resoluções acima disso continuam no seletor, com o rótulo "(pode demorar neste PC)".
+  - **Revisão final (escolha do Claude):** Intel Quick Sync e AMD também usam essa regra; só a NVIDIA libera o 4K como "Melhor disponível". Esses gráficos costumam ser integrados de notebook, onde ler um 4K VP9/AV1 ainda pesa no processador.
   - Itens da fila e da playlist seguem a mesma regra.
   - Se o vídeo não tiver nenhuma versão H.264, vale a regra normal.
 - O download (8 partes paralelas) não depende do hardware.

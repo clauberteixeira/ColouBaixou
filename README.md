@@ -1,62 +1,55 @@
+<div align="center">
+
+<img src="assets/icon.png" width="96" alt="Ícone do ColouBaixô">
+
 # ColouBaixô
 
-Programa para Windows: cole o link de um vídeo do YouTube e baixe em **MP4** (até 4K, compatível com qualquer player) ou em **MP3** (320 kbps, com capa). Também baixa vários vídeos em fila e escolhe vídeos de playlists e Mix do YouTube.
+**Colou o link, baixou o vídeo.**
 
-## Instalar
+Programa gratuito para Windows que baixa vídeos do YouTube em **MP4** (até 4K) ou só o áudio em **MP3**, com a pasta organizada por canal.
 
-1. Baixe `ColouBaixou-Setup-<versão>.exe` na página de [Releases](https://github.com/clauberteixeira/ColouBaixou/releases) e abra.
-2. Se aparecer **"O Windows protegeu o computador"**, clique em **Mais informações → Executar assim mesmo**.
-   - Outra forma: botão direito no instalador → **Propriedades** → marque **Desbloquear** → OK, e depois abra normalmente.
-   - Copiado por **pendrive**, o aviso nem aparece.
-3. Avançar → Instalar → Concluir. Não pede senha de administrador.
+### [⬇ Baixar o instalador](https://github.com/clauberteixeira/ColouBaixou/releases/latest)
 
-> **Por que aparece esse aviso?** O ColouBaixô é gratuito e feito para ajudar família e amigos, por isso não tem assinatura digital paga (que custa caro e precisa ser renovada todo ano). O Windows avisa sobre qualquer programa novo sem essa assinatura. Não é vírus nem defeito.
+Windows 10 ou 11 · 64 bits · grátis · sem propaganda
 
-Funciona no Windows 10 e 11 (64 bits). Na primeira vez que abre, o programa baixa sozinho o motor de download (yt-dlp) e, se o computador não tiver Node.js, o Deno. Por isso a primeira abertura precisa de internet.
+</div>
 
-## Usar
+---
 
-- **Um vídeo:** cole o link, confira a prévia, escolha a qualidade e clique em **MP4** ou **MP3**.
-- **Vários vídeos:** cole vários links de uma vez (um por linha). Eles entram na fila **em revisão**: desmarque o que não quiser e clique em **Baixar selecionados**.
-- **Playlist ou Mix:** ao colar um link de playlist, o programa pergunta se você quer só aquele vídeo ou escolher vídeos da playlist.
-- **Pasta:** aparece em "📁 Salvando em". Clique em **Alterar** para trocar, e a escolha fica gravada.
+![Tela principal do ColouBaixô](docs/images/tela-principal-dark.png)
 
-Arquivos salvos em:
+## O que ele faz
 
-```
-<pasta>\Vídeos\<Canal>\<título>.mp4
-<pasta>\Áudios\<Canal>\<título>.mp3
-```
+- 🎬 **Vídeo em MP4** na melhor qualidade que o vídeo tiver (até 4K), que abre em qualquer TV, celular ou computador.
+- 🎵 **Só o áudio em MP3** (320 kbps), com a capa do vídeo e o nome do canal.
+- 📋 **Vários vídeos de uma vez:** cole vários links e escolha quais baixar.
+- 📃 **Playlists e Mix do YouTube:** escolha os vídeos de uma lista.
+- 📁 **Tudo organizado:** `Vídeos\<Canal>` e `Áudios\<Canal>`, na pasta que você escolher.
+- 💻 **Funciona em qualquer computador:** o programa se adapta à máquina. Em computadores mais simples, ele evita as conversões demoradas.
 
-### Computadores diferentes
+## Como começar
 
-O programa testa o computador ao abrir e usa a aceleração de vídeo que existir (NVIDIA, Intel Quick Sync ou AMD). Num computador sem aceleração, **"Melhor disponível"** passa a ser a melhor qualidade que não precisa de conversão (normalmente 1080p), que é rápida em qualquer máquina. O 4K continua disponível com o aviso "(lenta neste PC)".
+1. **[Baixe o instalador](https://github.com/clauberteixeira/ColouBaixou/releases/latest)** (arquivo `ColouBaixou-Setup-….exe`, cerca de 64 MB).
+2. Abra o arquivo e siga o **[passo a passo de instalação](docs/INSTALACAO.md)**.
+   > O Windows pode mostrar "O Windows protegeu o computador". É normal para programas gratuitos sem assinatura paga. [Veja como continuar](docs/INSTALACAO.md#o-windows-protegeu-o-computador).
+3. Abra o **ColouBaixô**, cole o link do YouTube e clique em **MP4** ou **MP3**.
 
-### "O YouTube bloqueou temporariamente"
+## Guias
 
-Se forem feitos muitos downloads seguidos da mesma internet, o YouTube pode bloquear por algumas horas. A fila pausa sozinha. Clique em **▶ Continuar fila** mais tarde.
+| | |
+|---|---|
+| 📥 [**Como instalar**](docs/INSTALACAO.md) | Passo a passo, incluindo o aviso do Windows |
+| ▶️ [**Como usar**](docs/COMO-USAR.md) | Um vídeo, vários vídeos, playlists, MP3, qualidade e pasta |
+| ❓ [**Perguntas frequentes**](docs/PERGUNTAS-FREQUENTES.md) | "Onde ficou o arquivo?", "Deu bloqueio", "Demorou", desinstalar… |
+| 🐞 [**Encontrou um problema?**](https://github.com/clauberteixeira/ColouBaixou/issues/new/choose) | Conte o que aconteceu e a gente tenta resolver |
+| 🛠️ [Para desenvolvedores](docs/DESENVOLVIMENTO.md) | Como gerar o programa e o instalador |
 
-## Gerar o programa e o instalador
+## Use com responsabilidade
 
-Requisitos: Python 3.12 e Inno Setup 6 (`winget install JRSoftware.InnoSetup`).
+O ColouBaixô é um projeto pessoal, gratuito e sem fins comerciais, feito para ajudar família e amigos. Baixe **apenas** vídeos seus, conteúdos com licença livre (Creative Commons) ou com permissão do autor. Os termos do YouTube não permitem baixar outros conteúdos sem autorização. Cada pessoa é responsável pelo que baixa.
 
-```powershell
-py -3.12 -m venv .venv
-.\.venv\Scripts\python -m pip install -r requirements-dev.txt
-.\.venv\Scripts\python -m pytest
-powershell -ExecutionPolicy Bypass -File scripts\make_installer.ps1
-```
+O ColouBaixô não tem nenhuma ligação com o YouTube ou com o Google.
 
-`scripts\get_ffmpeg.ps1` baixa o FFmpeg "essentials" para `vendor\ffmpeg\` (fora do git). O instalador sai em `dist\installer\`. Para testar sem empacotar: `.\.venv\Scripts\python run_app.py`. Para simular um computador sem Node.js ou sem aceleração, use as variáveis de ambiente `YTDL_NO_NODE=1` e `YTDL_NO_HW=1`.
+---
 
-## Onde ficam os dados
-
-`%LOCALAPPDATA%\YoutubeForDownload\`
-- `bin\`: yt-dlp e Deno, baixados e atualizados sozinhos
-- `config.json`: pasta escolhida
-- `logs\app.log`: detalhes técnicos quando algo dá errado
-- `tmp\`: temporários (limpos automaticamente)
-
-## Observação
-
-Use para vídeos seus, conteúdo liberado (Creative Commons) ou com permissão do autor. Os termos do YouTube não permitem baixar outros conteúdos sem autorização.
+<sub>Feito com [yt-dlp](https://github.com/yt-dlp/yt-dlp), [FFmpeg](https://ffmpeg.org) e [CustomTkinter](https://github.com/TomSchimansky/CustomTkinter). Licença [MIT](LICENSE). As imagens dos guias usam filmes abertos da [Blender Foundation](https://studio.blender.org/films/) (CC BY).</sub>
