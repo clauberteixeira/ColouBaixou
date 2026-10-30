@@ -24,6 +24,7 @@ Windows 10 ou 11 · 64 bits · grátis · sem propaganda
 - 🎵 **Só o áudio em MP3** (320 kbps), com a capa do vídeo e o nome do canal.
 - 📋 **Vários vídeos de uma vez:** cole vários links e escolha quais baixar.
 - 📃 **Playlists e Mix do YouTube:** escolha os vídeos de uma lista.
+- 🚫 **Nunca baixa duas vezes:** reconhece o que você já baixou.
 - 📁 **Tudo organizado:** `Vídeos\<Canal>` e `Áudios\<Canal>`, na pasta que você escolher.
 - 🔄 **Sempre atualizado:** o programa avisa quando sai versão nova e se atualiza com um clique.
 - 💻 **Funciona em qualquer computador:** o programa se adapta à máquina. Em computadores mais simples, ele evita as conversões demoradas.

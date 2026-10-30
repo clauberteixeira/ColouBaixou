@@ -151,3 +151,11 @@ def test_requeue_puts_item_back_first():
     assert a.status == Status.QUEUED and a.error is None
     assert m.next_item() is a
     assert b.status == Status.QUEUED
+
+
+def test_mark_previously_downloaded():
+    m = QueueModel()
+    r = m.add(A, "video", Status.REVIEW)
+    m.mark_previously_downloaded(r.id, Path("x.mp4"))
+    assert r.status == Status.DONE and r.previously and r.path == Path("x.mp4")
+    assert m.review_checked_count() == 0

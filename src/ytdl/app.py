@@ -21,6 +21,7 @@ from ytdl.config import Config, load_config, save_config
 from ytdl.downloader import Job, cleanup_stale_temp, fetch_info, fetch_oembed
 from ytdl.errors import BOT_BLOCK, INVALID_LINK, NO_NODE_WARNING, Cancelled, DownloadError, FriendlyError
 from ytdl.hardware import prefers_fast_mode
+from ytdl.history import DownloadHistory, already_downloaded
 from ytdl.formats import VideoInfo, available_heights, format_duration, plan_video, quality_label, quality_options
 from ytdl.paths import app_data_dir, resource_dir
 from ytdl.playlist import PlaylistEntry, thumb_url
@@ -68,6 +69,7 @@ class App(ctk.CTk):
         self.url: str | None = None  # link canônico do vídeo em prévia
         self.quality_map: dict[str, int | None] = {}
         self.model = QueueModel()
+        self.history = DownloadHistory()
         self.default_kind: Kind = "video"
         self.job: Job | None = None
         self.job_item: int | None = None
@@ -409,15 +411,18 @@ class App(ctk.CTk):
             self._load_preview(canonical_url(video_id))
 
     def _open_playlist(self, url: str, playlist_id: str, preselect: str | None) -> None:
-        PlaylistWindow(self, self.tools, url, playlist_id, preselect, self.default_kind, self._add_playlist)
+        PlaylistWindow(self, self.tools, url, playlist_id, preselect, self.default_kind, self._add_playlist,
+                       is_downloaded=lambda e, kind: self.downloaded_path(e.video_id, kind, e.channel, e.title) is not None)
 
     def _add_playlist(self, entries: list[PlaylistEntry], kind: Kind) -> None:
-        added, duplicates = self.add_to_queue(
+        added, duplicates, downloaded = self.add_to_queue(
             [(e.video_id, {"title": e.title, "channel": e.channel, "duration": e.duration}) for e in entries],
             kind, Status.QUEUED)
         message = f"{added} vídeos adicionados à fila."
         if duplicates:
             message += f" ({duplicates} já estavam na fila)"
+        if downloaded:
+            message += f" ({downloaded} já tinham sido baixados)"
         self._status(message)
         self.pump_queue()
 
@@ -480,10 +485,16 @@ class App(ctk.CTk):
 
     # --- fila: entrada de itens -----------------------------------------
 
-    def add_to_queue(self, entries: list[tuple[str, dict]], kind: Kind, status: Status) -> tuple[int, int]:
-        """Adiciona itens; devolve (adicionados, repetidos)."""
-        added = duplicates = 0
+    def downloaded_path(self, video_id: str, kind: Kind, channel: str | None, title: str | None) -> Path | None:
+        return already_downloaded(self.history, self.settings.base_dir, video_id, kind, channel, title)
+
+    def add_to_queue(self, entries: list[tuple[str, dict]], kind: Kind, status: Status) -> tuple[int, int, int]:
+        """Adiciona itens; devolve (adicionados, repetidos na fila, já baixados antes)."""
+        added = duplicates = downloaded = 0
         for video_id, fields in entries:
+            if self.downloaded_path(video_id, kind, fields.get("channel"), fields.get("title")):
+                downloaded += 1
+                continue
             item = self.model.add(video_id, kind, status, **fields)
             if item is None:
                 duplicates += 1
@@ -493,14 +504,20 @@ class App(ctk.CTk):
             if item.title is None:
                 self._detail_requests.put((item.id, video_id))
         self._render_queue()
-        return added, duplicates
+        return added, duplicates, downloaded
 
     def _add_preview(self, kind: Kind) -> None:
         if not self.info:
             return
         info = self.info
         res = self.quality_map.get(self.quality_menu.get()) if kind == "video" else None
-        added, _ = self.add_to_queue(
+        existing = self.downloaded_path(info.id, kind, info.channel, info.title)
+        if existing:
+            self.last_file = existing  # "Abrir pasta" mostra o arquivo
+            self._status(f"Você já baixou este vídeo em {'MP4' if kind == 'video' else 'MP3'}. "
+                         "Clique em 📁 Abrir pasta para ver o arquivo.")
+            return
+        added, _, _ = self.add_to_queue(
             [(info.id, {"title": info.title, "channel": info.channel, "duration": info.duration,
                         "info": info, "res": res})], kind, Status.QUEUED)
         self._show_update_button(False)
@@ -511,10 +528,12 @@ class App(ctk.CTk):
         ids = extract_video_ids(text)
         pieces = [p for p in text.split() if "youtu" in p.lower() or "://" in p]
         unrecognized = sum(1 for p in pieces if extract_video_id(p) is None)
-        added, duplicates = self.add_to_queue([(v, {}) for v in ids], self.default_kind, Status.REVIEW)
+        added, duplicates, downloaded = self.add_to_queue([(v, {}) for v in ids], self.default_kind, Status.REVIEW)
         message = f"{added} links adicionados para revisão: desmarque o que não quiser e clique em Baixar selecionados."
         if duplicates:
             message += f" ({duplicates} já estavam na fila)"
+        if downloaded:
+            message += f" {downloaded} já tinham sido baixados (ignorados)."
         if unrecognized:
             message += f" {unrecognized} links não reconhecidos."
         self._status(message)
@@ -585,7 +604,12 @@ class App(ctk.CTk):
         if self.job or not self.tools or self.paused:
             return
         item = self.model.next_item()
+        # barreira 2: confere de novo na hora de começar (algo pode ter sido baixado enquanto esperava)
+        while item is not None and (existing := self.downloaded_path(item.video_id, item.kind, item.channel, item.title)):
+            self.model.mark_previously_downloaded(item.id, existing)
+            item = self.model.next_item()
         if item is None:
+            self._render_queue()
             return
         self.model.start(item.id)
         item_id, video_id, kind, info, res = item.id, item.video_id, item.kind, item.info, item.res
@@ -593,7 +617,7 @@ class App(ctk.CTk):
         self.job_item = item_id
         self.job = job = Job(self.tools, app_data_dir() / "tmp",
                              lambda p: self.events.put(("q_progress", (item_id, p))))
-        tools, fast = self.tools, self.fast
+        tools, fast, history = self.tools, self.fast, self.history
         self._render_queue()
 
         def work(info=info):
@@ -602,6 +626,11 @@ class App(ctk.CTk):
                 if info is None:
                     info = fetch_info(tools, url)
                     self.events.put(("q_info", (item_id, info)))
+                # barreira 3: agora com título e canal reais, o arquivo já existe?
+                existing = already_downloaded(history, base, video_id, kind, info.channel, info.title)
+                if existing:
+                    self.events.put(("q_previously", (item_id, existing)))
+                    return
                 if kind == "video":
                     path = job.run_video(url, info, plan_video(info, res, fast=fast), base)
                 else:
@@ -617,6 +646,14 @@ class App(ctk.CTk):
 
         self.worker = threading.Thread(target=work, daemon=True)
         self.worker.start()
+
+    def _on_q_previously(self, payload) -> None:
+        item_id, path = payload
+        item = self.model.get(item_id)
+        if item:
+            item.status, item.path, item.previously, item.progress = Status.DONE, path, True, None
+            self._status(f"Pulado: “{item.title}” já tinha sido baixado.")
+        self._job_finished(item_id)
 
     def _job_finished(self, item_id: int) -> None:
         if self.job_item == item_id:
@@ -635,10 +672,13 @@ class App(ctk.CTk):
         item_id, info = payload
         if item := self.model.get(item_id):
             item.info, item.title, item.channel, item.duration = info, info.title, info.channel, info.duration
+            self._check_previously(item)
             self.queue_view.update_item(item)
 
     def _on_q_done(self, payload) -> None:
         item_id, path = payload
+        if item := self.model.get(item_id):
+            self.history.record(item.video_id, item.kind, path)
         self.model.finish(item_id, path)
         self.last_file = path
         self._job_finished(item_id)
@@ -684,7 +724,16 @@ class App(ctk.CTk):
         item_id, (title, channel) = payload
         if item := self.model.get(item_id):
             item.title, item.channel = title, channel
+            self._check_previously(item)
             self.queue_view.update_item(item)
+
+    def _check_previously(self, item) -> None:
+        """Link colado: com título e canal em mãos, vê se o arquivo já está na pasta."""
+        if item.status in (Status.REVIEW, Status.QUEUED):
+            path = self.downloaded_path(item.video_id, item.kind, item.channel, item.title)
+            if path:
+                self.model.mark_previously_downloaded(item.id, path)
+                self._render_queue()
 
     def _on_q_info_failed(self, payload) -> None:
         item_id, message = payload

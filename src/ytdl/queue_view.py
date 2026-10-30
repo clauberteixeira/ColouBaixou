@@ -10,13 +10,14 @@ from typing import Callable
 import customtkinter as ctk
 from PIL import Image, ImageTk
 
+from ytdl.images import CHECK_SIZE, GAP, Check, row_image
 from ytdl.progress import describe
 from ytdl.queue_model import EDITABLE, FINISHED, Item, Status
 
 TITLE_MAX = 60
 ROW_THUMB = (56, 32)
 KIND_LABEL = {"video": "MP4", "audio": "MP3"}
-COLUMNS = ("check", "title", "channel", "kind", "status", "remove")
+COLUMNS = ("title", "channel", "kind", "status", "remove")
 STYLE = "Colou.Treeview"
 
 
@@ -29,7 +30,8 @@ def status_text(item: Item) -> tuple[str, bool]:
     if item.status == Status.DOWNLOADING:
         return (describe(item.progress) if item.progress else "Iniciando…"), False
     if item.status == Status.DONE:
-        return "✔ Concluído (clique para abrir)", False
+        done = "✔ Já baixado antes" if item.previously else "✔ Concluído"
+        return f"{done} (clique para abrir)", False
     if item.status == Status.ERROR:
         return f"Erro: {item.error}", True
     return "Cancelado", False
@@ -43,9 +45,15 @@ def display_title(item: Item) -> str:
 
 
 def row_values(item: Item) -> tuple[str, ...]:
-    check = ("☑" if item.checked else "☐") if item.status == Status.REVIEW else ""
     kind = KIND_LABEL[item.kind] + (" ▾" if item.status in EDITABLE else "")
-    return check, display_title(item), item.channel or "", kind, status_text(item)[0], "✕"
+    return display_title(item), item.channel or "", kind, status_text(item)[0], "✕"
+
+
+def row_check(item: Item) -> Check | None:
+    """Caixinha só enquanto o item está em revisão."""
+    if item.status != Status.REVIEW:
+        return None
+    return "on" if item.checked else "off"
 
 
 def row_tag(item: Item) -> str:
@@ -79,19 +87,19 @@ class QueueView(ctk.CTkFrame):
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure(0, weight=1)
         self.items: dict[int, Item] = {}
-        self.thumbs: dict[str, ImageTk.PhotoImage] = {}
+        self.thumbs: dict[str, Image.Image] = {}
+        self._images: dict[tuple, ImageTk.PhotoImage] = {}  # (video_id, caixinha) → imagem pronta
 
         self.tree = ttk.Treeview(self, columns=COLUMNS, show="tree headings", style=style_tree(ROW_THUMB[1] + 8),
                                  selectmode="browse")
-        headings = {"check": "", "title": "Título", "channel": "Canal", "kind": "Formato",
-                    "status": "Situação", "remove": ""}
-        widths = {"check": 30, "title": 230, "channel": 100, "kind": 70, "status": 270, "remove": 30}
+        headings = {"title": "Título", "channel": "Canal", "kind": "Formato", "status": "Situação", "remove": ""}
+        widths = {"title": 230, "channel": 100, "kind": 70, "status": 270, "remove": 30}
         self.tree.heading("#0", text="")
-        self.tree.column("#0", width=ROW_THUMB[0] + 22, stretch=False)
+        self.tree.column("#0", width=CHECK_SIZE + GAP + ROW_THUMB[0] + 28, stretch=False)
         for col in COLUMNS:
             self.tree.heading(col, text=headings[col], anchor="w")
             stretch = col in ("title", "status")
-            anchor = "center" if col in ("check", "remove") else "w"
+            anchor = "center" if col == "remove" else "w"
             self.tree.column(col, width=widths[col], stretch=stretch, anchor=anchor, minwidth=widths[col] // 2)
         self.tree.tag_configure("error", foreground="#e05a50")
         self.tree.tag_configure("done", foreground="#3faa63")
@@ -109,11 +117,15 @@ class QueueView(ctk.CTkFrame):
 
     # --- desenho ---------------------------------------------------------
 
+    def _image(self, item: Item) -> ImageTk.PhotoImage:
+        key = (item.video_id if item.video_id in self.thumbs else None, row_check(item))
+        if key not in self._images:
+            self._images[key] = ImageTk.PhotoImage(row_image(self.thumbs.get(item.video_id), key[1], ROW_THUMB))
+        return self._images[key]
+
     def _apply(self, item: Item) -> None:
         iid = str(item.id)
-        kwargs = {"values": row_values(item), "tags": (row_tag(item),)}
-        if item.video_id in self.thumbs:
-            kwargs["image"] = self.thumbs[item.video_id]
+        kwargs = {"values": row_values(item), "tags": (row_tag(item),), "image": self._image(item)}
         if self.tree.exists(iid):
             self.tree.item(iid, **kwargs)
         else:
@@ -139,10 +151,10 @@ class QueueView(ctk.CTkFrame):
             self._apply(item)
 
     def set_thumb(self, video_id: str, image: Image.Image) -> None:
-        self.thumbs[video_id] = ImageTk.PhotoImage(image)
+        self.thumbs[video_id] = image
         for item in self.items.values():
             if item.video_id == video_id and self.tree.exists(str(item.id)):
-                self.tree.item(str(item.id), image=self.thumbs[video_id])
+                self.tree.item(str(item.id), image=self._image(item))
 
     # --- cliques ---------------------------------------------------------
 
@@ -152,7 +164,7 @@ class QueueView(ctk.CTkFrame):
         if not row:
             return None, ""
         index = int(column[1:]) - 1
-        name = COLUMNS[index] if 0 <= index < len(COLUMNS) else ""
+        name = "check" if index < 0 else COLUMNS[index] if index < len(COLUMNS) else ""
         return self.items.get(int(row)), name
 
     def _on_click(self, event) -> None:

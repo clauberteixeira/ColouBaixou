@@ -8,6 +8,7 @@
 - [Baixar vários vídeos de uma vez](#baixar-vários-vídeos-de-uma-vez)
 - [Baixar de uma playlist ou Mix](#baixar-de-uma-playlist-ou-mix)
 - [A fila de downloads](#a-fila-de-downloads)
+- [Nunca baixa duas vezes](#nunca-baixa-duas-vezes)
 - [Onde os arquivos ficam](#onde-os-arquivos-ficam)
 - [Atualizações](#atualizações)
 
@@ -61,7 +62,7 @@ Quando o link faz parte de uma playlist (por exemplo, um **Mix do YouTube**), o 
 
 Na lista:
 
-1. O vídeo do link já vem marcado. Clique nas linhas para marcar ou desmarcar, ou use **Marcar todos**.
+1. O vídeo do link já vem marcado. Clique nas linhas para marcar ou desmarcar, ou use **Marcar todos**. Vídeos que você **já baixou** naquele formato aparecem com **✔ Já baixado** e ficam bloqueados.
 2. Escolha **MP4** ou **MP3** embaixo.
 3. Clique em **Adicionar … à fila**.
 
@@ -85,6 +86,18 @@ Os vídeos baixam **um de cada vez**, na ordem. Você pode continuar colando lin
 - **Limpar finalizados** tira da lista os concluídos, os com erro e os cancelados.
 - Ao fechar o programa com algo baixando, ele pergunta antes de cancelar.
 
+## Nunca baixa duas vezes
+
+O ColouBaixô lembra o que você já baixou e também reconhece os arquivos que já estão na pasta:
+
+- Clicou em **MP4/MP3** num vídeo que já baixou? Ele avisa *"Você já baixou este vídeo"* e não baixa de novo. Clique em **📁 Abrir pasta** para ver o arquivo.
+- Colou um link já baixado? Ele aparece na fila como **✔ Já baixado antes**.
+- Na playlist, os vídeos já baixados ficam marcados como **✔ Já baixado** e não podem ser selecionados.
+
+O controle é **por formato**: se você baixou o MP3, ainda pode baixar o MP4 do mesmo vídeo (e vice-versa).
+
+> Quer baixar de novo? Apague o arquivo da pasta, e o programa libera o download.
+
 ## Onde os arquivos ficam
 
 A pasta aparece no topo, em **📁 Salvando em**. O padrão é `Downloads\YouTube`. Para trocar, clique em **📂 Escolher pasta** (ao lado de *Abrir pasta*) e escolha outra. A escolha fica gravada para as próximas vezes.
@@ -101,7 +114,7 @@ YouTube\
         └── Título do vídeo.mp3
 ```
 
-Se você baixar o mesmo vídeo de novo, o arquivo novo ganha um número, como `Título (2).mp4`. Nada é apagado.
+Se dois vídeos **diferentes** tiverem exatamente o mesmo título no mesmo canal, o segundo ganha um número, como `Título (2).mp4`. Nada é apagado.
 
 **📁 Abrir pasta** abre a pasta do último arquivo baixado.
 
