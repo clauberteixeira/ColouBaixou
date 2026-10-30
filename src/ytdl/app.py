@@ -14,12 +14,13 @@ from pathlib import Path
 import customtkinter as ctk
 from PIL import Image
 
-from ytdl.config import load_config
+from ytdl.config import Config, load_config
 from ytdl.downloader import Job, cleanup_stale_temp, fetch_info
 from ytdl.errors import INVALID_LINK, NO_NODE_WARNING, Cancelled, DownloadError, FriendlyError
 from ytdl.formats import VideoInfo, available_heights, format_duration, plan_video, quality_label
 from ytdl.paths import app_data_dir
 from ytdl.progress import Progress, describe
+from ytdl.settings import SettingsWindow
 from ytdl.tools import Tools, load_tools, update_ytdlp
 from ytdl.urls import canonical_url, extract_video_id, should_autofill
 
@@ -56,6 +57,7 @@ class App(ctk.CTk):
         self._preview_token = 0
         self._last_clip: str | None = None
         self._thumb = None  # mantém a referência da imagem viva
+        self._settings_window: SettingsWindow | None = None
 
         self._build()
         self._set_buttons(False)
@@ -385,7 +387,14 @@ class App(ctk.CTk):
         os.startfile(base)
 
     def open_settings(self) -> None:
-        """Abre a janela de Configurações (Task 9)."""
+        if self._settings_window and self._settings_window.winfo_exists():
+            self._settings_window.focus()
+            return
+        self._settings_window = SettingsWindow(self, self.tools, self.settings, self._on_settings_saved)
+
+    def _on_settings_saved(self, config: Config) -> None:
+        self.settings = config
+        self.last_file = None
 
     def _on_close(self) -> None:
         if self.job:
