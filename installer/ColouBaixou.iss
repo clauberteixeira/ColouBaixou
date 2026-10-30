@@ -36,6 +36,10 @@ Name: "brazilianportuguese"; MessagesFile: "compiler:Languages\BrazilianPortugue
 [Tasks]
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"
 
+[InstallDelete]
+; numa atualização, apaga os arquivos internos da versão anterior antes de copiar os novos
+Type: filesandordirs; Name: "{app}\_internal"
+
 [Files]
 Source: "..\dist\ColouBaixou\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
@@ -45,6 +49,8 @@ Name: "{autodesktop}\{#AppName}"; Filename: "{app}\{#AppExe}"; Tasks: desktopico
 
 [Run]
 Filename: "{app}\{#AppExe}"; Description: "Abrir o {#AppName}"; Flags: nowait postinstall skipifsilent
+; atualização automática (instalador rodando em silêncio): reabre o programa sozinho
+Filename: "{app}\{#AppExe}"; Flags: nowait; Check: WizardSilent
 
 [UninstallDelete]
 ; componentes baixados pelo programa (yt-dlp, Deno), temporários e logs; os vídeos baixados ficam

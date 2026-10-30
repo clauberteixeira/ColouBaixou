@@ -21,6 +21,8 @@ src/ytdl/
   playlist_window.py  pergunta e janela de escolha da playlist
   formats.py          escolha de formato/qualidade (até 4K, H.264/AAC, HDR→SDR)
   downloader.py       execução, conversão, cancelamento, oEmbed
+  updater.py          atualização do próprio programa pelas Releases do GitHub
+  about.py            nome, autor e links
   hardware.py         detecção de aceleração de vídeo
   commands.py         linhas de comando do yt-dlp/ffmpeg (puro)
   progress.py         leitura do progresso
@@ -58,8 +60,17 @@ Esse comando:
 
 A versão fica em `src/ytdl/__init__.py`.
 
-## Publicar uma versão
+## Publicar uma versão (e atualizar todo mundo)
 
-1. Atualize `__version__` e o [CHANGELOG](../CHANGELOG.md).
-2. Gere o instalador.
-3. `gh release create vX.Y.Z dist\installer\ColouBaixou-Setup-X.Y.Z.exe --title "ColouBaixô X.Y.Z" --notes-file <notas>`.
+Os programas instalados consultam `api.github.com/repos/clauberteixeira/ColouBaixou/releases/latest` ao abrir (`src/ytdl/updater.py`). Quando a tag é maior que a versão instalada e a Release tem o arquivo `ColouBaixou-Setup-*.exe`, aparece a faixa **"Nova versão disponível"**. **Atualizar agora** baixa o instalador e roda em modo silencioso: ele fecha o programa, atualiza e reabre (`[Run] … Check: WizardSilent` no `.iss`).
+
+1. Atualize `__version__` em `src/ytdl/__init__.py` (ex.: `1.1.0`).
+2. Acrescente a versão no [CHANGELOG](../CHANGELOG.md) e crie `docs/release-notes/v1.1.0.md`.
+3. Faça o commit.
+4. Publique:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\publish_release.ps1 1.1.0
+```
+
+O script confere a versão, roda os testes, gera o instalador, cria a tag `v1.1.0`, envia para o GitHub e publica a Release com o instalador.

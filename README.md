@@ -25,6 +25,7 @@ Windows 10 ou 11 · 64 bits · grátis · sem propaganda
 - 📋 **Vários vídeos de uma vez:** cole vários links e escolha quais baixar.
 - 📃 **Playlists e Mix do YouTube:** escolha os vídeos de uma lista.
 - 📁 **Tudo organizado:** `Vídeos\<Canal>` e `Áudios\<Canal>`, na pasta que você escolher.
+- 🔄 **Sempre atualizado:** o programa avisa quando sai versão nova e se atualiza com um clique.
 - 💻 **Funciona em qualquer computador:** o programa se adapta à máquina. Em computadores mais simples, ele evita as conversões demoradas.
 
 ## Como começar

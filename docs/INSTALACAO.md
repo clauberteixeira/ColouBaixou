@@ -45,9 +45,11 @@ Pronto! Agora veja **[como usar](COMO-USAR.md)**.
 
 ## Atualizar para uma versão nova
 
-Baixe o instalador novo em [Releases](https://github.com/clauberteixeira/ColouBaixou/releases/latest) e instale por cima. Suas configurações e seus vídeos continuam onde estão.
+**É automático.** Quando sai uma versão nova, o programa mostra no topo *"🎉 Nova versão disponível!"*. Clique em **Atualizar agora** e ele baixa, instala e abre de novo sozinho. Suas configurações e seus vídeos continuam onde estão.
 
-O **motor de download se atualiza sozinho** sempre que você abre o programa. Você não precisa instalar de novo por causa de mudanças no YouTube.
+O **motor de download** também se atualiza sozinho sempre que você abre o programa.
+
+> Se preferir, também dá para baixar o instalador novo em [Releases](https://github.com/clauberteixeira/ColouBaixou/releases/latest) e instalar por cima.
 
 ## Desinstalar
 

@@ -8,6 +8,7 @@ import subprocess
 import threading
 import tkinter
 import urllib.request
+import webbrowser
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 from tkinter import filedialog, messagebox
@@ -15,6 +16,7 @@ from tkinter import filedialog, messagebox
 import customtkinter as ctk
 from PIL import Image
 
+from ytdl.about import APP_NAME, AUTHOR, AUTHOR_URL, REPO_URL, VERSION
 from ytdl.config import Config, load_config, save_config
 from ytdl.downloader import Job, cleanup_stale_temp, fetch_info, fetch_oembed
 from ytdl.errors import BOT_BLOCK, INVALID_LINK, NO_NODE_WARNING, Cancelled, DownloadError, FriendlyError
@@ -27,11 +29,12 @@ from ytdl.queue_model import Kind, QueueModel, Status
 from ytdl.queue_view import ROW_THUMB, QueueView
 from ytdl.settings import SettingsWindow
 from ytdl.tools import Tools, load_tools, update_ytdlp
+from ytdl.updater import Release, check_latest, download_installer, install_args
 from ytdl.urls import canonical_url, extract_playlist_id, extract_video_id, extract_video_ids, should_autofill
 
 log = logging.getLogger("ytdl")
 
-APP_TITLE = "ColouBaixô"
+APP_TITLE = APP_NAME
 BEST = "Melhor disponível"
 THUMB_SIZE = (160, 90)
 DEBOUNCE_MS = 400
@@ -76,6 +79,8 @@ class App(ctk.CTk):
         self._thumb = None  # mantém a referência da imagem viva
         self._settings_window: SettingsWindow | None = None
         self._asked_playlist: str | None = None
+        self.release: Release | None = None  # nova versão do programa, se houver
+        self._updating = False
         self._detail_requests: queue.Queue = queue.Queue()
         self._thumb_requests: queue.Queue = queue.Queue()
 
@@ -88,6 +93,7 @@ class App(ctk.CTk):
         self._status("Preparando componentes…")
         self._background(self._prepare_tools)
         self._background(self._thumb_worker)
+        self._background(lambda: self.events.put(("app_update", check_latest(VERSION))))
 
     # --- montagem da tela ---------------------------------------------
 
@@ -105,13 +111,21 @@ class App(ctk.CTk):
         ctk.CTkButton(top, text="⚙", width=36, height=36, font=ctk.CTkFont(size=20),
                       command=self.open_settings).grid(row=0, column=1, padx=(8, 0))
 
-        folder = ctk.CTkFrame(self, fg_color="transparent")
-        folder.grid(row=1, column=0, sticky="ew", pady=(0, 4), **pad)
-        folder.grid_columnconfigure(0, weight=1)
-        self.folder_label = ctk.CTkLabel(folder, text="", anchor="w", text_color=MUTED)
-        self.folder_label.grid(row=0, column=0, sticky="ew")
-        ctk.CTkButton(folder, text="Alterar", width=70, height=24, fg_color=GRAY, text_color=("gray10", "gray90"),
-                      hover_color=GRAY_HOVER, command=self._choose_folder).grid(row=0, column=1)
+        # faixa "nova versão disponível" (só aparece quando há atualização)
+        self.banner = ctk.CTkFrame(top, fg_color=("#e8f0fe", "#1e3a5f"))
+        self.banner.grid_columnconfigure(0, weight=1)
+        self.banner_label = ctk.CTkLabel(self.banner, text="", anchor="w")
+        self.banner_label.grid(row=0, column=0, sticky="ew", padx=12, pady=6)
+        self.banner_notes = ctk.CTkButton(self.banner, text="Ver novidades", width=110, height=28, fg_color="transparent",
+                                          border_width=1, text_color=("gray10", "gray90"),
+                                          command=lambda: webbrowser.open(self.release.notes_url))
+        self.banner_notes.grid(row=0, column=1, padx=(0, 8))
+        self.banner_btn = ctk.CTkButton(self.banner, text="Atualizar agora", width=130, height=28,
+                                        command=self.start_update)
+        self.banner_btn.grid(row=0, column=2, padx=(0, 8))
+
+        self.folder_label = ctk.CTkLabel(self, text="", anchor="w", text_color=MUTED)
+        self.folder_label.grid(row=1, column=0, sticky="ew", pady=(0, 2), **pad)
         self._show_folder()
 
         self.preview = ctk.CTkFrame(self)
@@ -137,9 +151,12 @@ class App(ctk.CTk):
         self.folder_btn = ctk.CTkButton(buttons, text="📁 Abrir pasta", width=130, height=36, fg_color=GRAY,
                                         text_color=("gray10", "gray90"), hover_color=GRAY_HOVER,
                                         command=self._open_folder)
-        self.update_btn = ctk.CTkButton(buttons, text="Atualizar agora", width=130, height=36,
+        self.choose_btn = ctk.CTkButton(buttons, text="📂 Escolher pasta", width=140, height=36, fg_color=GRAY,
+                                        text_color=("gray10", "gray90"), hover_color=GRAY_HOVER,
+                                        command=self._choose_folder)
+        self.update_btn = ctk.CTkButton(buttons, text="Atualizar motor", width=130, height=36,
                                         command=self._update_engine)
-        for i, b in enumerate((self.mp4_btn, self.mp3_btn, self.folder_btn)):
+        for i, b in enumerate((self.mp4_btn, self.mp3_btn, self.folder_btn, self.choose_btn)):
             b.grid(row=0, column=i, padx=(0, 8))
 
         self.status_label = ctk.CTkLabel(self, text="", anchor="w", justify="left", wraplength=720)
@@ -162,7 +179,7 @@ class App(ctk.CTk):
         self.grid_rowconfigure(6, weight=1)
 
         actions = ctk.CTkFrame(self, fg_color="transparent")
-        actions.grid(row=7, column=0, sticky="ew", pady=(6, 14), **pad)
+        actions.grid(row=7, column=0, sticky="ew", pady=(6, 4), **pad)
         self.release_btn = ctk.CTkButton(actions, text="Baixar selecionados", height=32, command=self._release)
         self.cancel_all_btn = ctk.CTkButton(actions, text="Cancelar tudo", width=110, height=32, fg_color=GRAY,
                                             text_color=("gray10", "gray90"), hover_color=GRAY_HOVER,
@@ -173,6 +190,17 @@ class App(ctk.CTk):
         self.resume_btn = ctk.CTkButton(actions, text="▶ Continuar fila", width=130, height=32, command=self._resume)
         self.cancel_all_btn.grid(row=0, column=1, padx=(0, 8))
         self.clear_btn.grid(row=0, column=2)
+
+        footer = ctk.CTkFrame(self, fg_color="transparent")
+        footer.grid(row=8, column=0, sticky="e", pady=(0, 8), **pad)
+        small = ctk.CTkFont(size=11)
+        for column, (text, url) in enumerate(((f"{APP_NAME} {VERSION}", REPO_URL), (" · Desenvolvido por ", None),
+                                              (AUTHOR, AUTHOR_URL))):
+            label = ctk.CTkLabel(footer, text=text, font=small, text_color=MUTED)
+            label.grid(row=0, column=column)
+            if url:
+                label.configure(cursor="hand2")
+                label.bind("<Button-1>", lambda e, u=url: webbrowser.open(u))
 
     # --- utilidades de tela -------------------------------------------
 
@@ -258,6 +286,57 @@ class App(ctk.CTk):
 
     def _on_update_failed(self, _) -> None:
         self._status("Não foi possível atualizar agora. Tente mais tarde.", True)
+
+    # --- atualização do próprio programa --------------------------------
+
+    def _on_app_update(self, release: Release | None) -> None:
+        self.release = release
+        if release:
+            self.banner_label.configure(text=f"🎉 Nova versão {release.version} do {APP_NAME} disponível!")
+            self.banner.grid(row=1, column=0, columnspan=2, sticky="ew", pady=(8, 0))
+
+    def start_update(self) -> None:
+        if not self.release or self._updating:
+            return
+        if self.job and not messagebox.askyesno(
+                APP_TITLE, "Há downloads em andamento. Atualizar agora vai cancelá-los. Continuar?", parent=self):
+            return
+        self._updating = True
+        self.banner_btn.configure(state="disabled")
+        self.banner_label.configure(text="Baixando a atualização… 0%")
+        release = self.release
+
+        def work():
+            try:
+                path = download_installer(release, app_data_dir() / "tmp" / "update",
+                                          on_progress=lambda pct: self.events.put(("app_update_progress", pct)))
+                self.events.put(("app_update_ready", path))
+            except Exception:
+                log.exception("falha ao baixar a atualização")
+                self.events.put(("app_update_failed", None))
+
+        self._background(work)
+
+    def _on_app_update_progress(self, pct: float) -> None:
+        self.banner_label.configure(text=f"Baixando a atualização… {round(pct)}%")
+
+    def _on_app_update_failed(self, _) -> None:
+        self._updating = False
+        self.banner_btn.configure(state="normal")
+        self.banner_label.configure(text="Não foi possível baixar a atualização agora. Tente de novo mais tarde.")
+
+    def _on_app_update_ready(self, installer: Path) -> None:
+        self.banner_label.configure(text="Instalando a atualização… o programa vai abrir de novo sozinho.")
+        self.update()
+        if self.job:
+            self.model.cancel_all()
+            self.job.cancel()
+            if self.worker:
+                self.worker.join(timeout=5)
+        # o instalador fecha este programa, atualiza e reabre (ver [Run] em installer/ColouBaixou.iss)
+        subprocess.Popen(install_args(installer), close_fds=True,
+                         creationflags=subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP)
+        self.destroy()
 
     # --- link e prévia ------------------------------------------------
 
@@ -642,7 +721,8 @@ class App(ctk.CTk):
         if self._settings_window and self._settings_window.winfo_exists():
             self._settings_window.focus()
             return
-        self._settings_window = SettingsWindow(self, self.tools, self.settings, self._on_settings_saved)
+        self._settings_window = SettingsWindow(self, self.tools, self.settings, self._on_settings_saved,
+                                               release=self.release, on_update=self.start_update)
 
     def _on_settings_saved(self, config: Config) -> None:
         self.settings = config
