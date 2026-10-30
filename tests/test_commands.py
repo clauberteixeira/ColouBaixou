@@ -118,3 +118,10 @@ def test_ffmpeg_aac_when_audio_transcode():
 def test_ffmpeg_ends_with_faststart_and_dst():
     a = ffmpeg_args(Path("ffmpeg.exe"), SRC, DST, plan(tv=True), "x264")
     assert a[-3:] == ["-movflags", "+faststart", str(DST)]
+
+
+def test_ffmpeg_qsv_and_amf_encoders():
+    q = ffmpeg_args(Path("ffmpeg.exe"), SRC, DST, plan(tv=True), "qsv")
+    assert pair(q, "-c:v") == "h264_qsv"
+    m = ffmpeg_args(Path("ffmpeg.exe"), SRC, DST, plan(tv=True), "amf")
+    assert pair(m, "-c:v") == "h264_amf"

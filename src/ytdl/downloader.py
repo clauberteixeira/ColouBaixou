@@ -204,7 +204,8 @@ class Job:
                 self.on_progress(Progress("convert", pct, None, None, None))
 
         output = ""
-        for encoder in ("nvenc", "x264"):
+        encoders = [self.tools.hw_encoder] if self.tools.hw_encoder else []
+        for encoder in encoders + ["x264"]:
             self.on_progress(Progress("convert", 0.0, None, None, None))
             rc, output = self._run(ffmpeg_args(ffmpeg, src, dst, plan, encoder), on_line)
             if rc == 0:

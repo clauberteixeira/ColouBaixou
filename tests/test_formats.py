@@ -2,7 +2,8 @@ import dataclasses
 import json
 from pathlib import Path
 
-from ytdl.formats import available_heights, best_audio, format_duration, parse_info, plan_video, quality_label
+from ytdl.formats import (available_heights, best_audio, best_fast_height, format_duration, parse_info, plan_video,
+                          quality_label, quality_options)
 
 DATA = json.loads((Path(__file__).parent / "fixtures" / "info_sample.json").read_text("utf-8"))
 
@@ -119,3 +120,35 @@ def test_best_audio_for_mp3_is_highest_abr():
 def test_labels():
     assert [quality_label(h) for h in (2160, 1440, 1080)] == ["4K", "1440p (2K)", "1080p"]
     assert [format_duration(s) for s in (754, 3723, 0)] == ["12:34", "1:02:03", "0:00"]
+
+
+def test_fast_mode_prefers_no_conversion():
+    p = plan_video(parse_info(DATA), fast=True)
+    assert p.video.format_id == "137" and p.transcode_video is False
+
+
+def test_fast_mode_prefers_avc1_over_higher_fps():
+    i = parse_info(DATA)
+    vp9_60 = dataclasses.replace(next(f for f in i.video_formats if f.format_id == "248"), fps=60)
+    i = info(video_formats=(vp9_60,) + vids(i, {"137"}))
+    assert plan_video(i, 1080, fast=True).video.format_id == "137"
+
+
+def test_fast_mode_without_avc1_uses_normal_rule():
+    i = info(video_formats=vids(parse_info(DATA), {"313", "315"}))
+    assert best_fast_height(i) is None
+    assert plan_video(i, fast=True).video.format_id == "315"
+
+
+def test_best_fast_height():
+    assert best_fast_height(parse_info(DATA)) == 1080
+
+
+def test_quality_options_with_acceleration():
+    opts = quality_options(parse_info(DATA), fast=False)
+    assert list(opts.items()) == [("Melhor disponível (4K)", None), ("1080p", 1080), ("720p", 720)]
+
+
+def test_quality_options_without_acceleration():
+    opts = quality_options(parse_info(DATA), fast=True)
+    assert list(opts.items()) == [("Melhor disponível (1080p)", None), ("4K (lenta neste PC)", 2160), ("720p", 720)]

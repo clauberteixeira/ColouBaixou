@@ -18,7 +18,7 @@ from PIL import Image
 from ytdl.config import Config, load_config, save_config
 from ytdl.downloader import Job, cleanup_stale_temp, fetch_info, fetch_oembed
 from ytdl.errors import BOT_BLOCK, INVALID_LINK, NO_NODE_WARNING, Cancelled, DownloadError, FriendlyError
-from ytdl.formats import VideoInfo, available_heights, format_duration, plan_video, quality_label
+from ytdl.formats import VideoInfo, available_heights, format_duration, plan_video, quality_label, quality_options
 from ytdl.paths import app_data_dir
 from ytdl.playlist import PlaylistEntry, thumb_url
 from ytdl.playlist_window import PlaylistWindow, ask_playlist
@@ -185,6 +185,11 @@ class App(ctk.CTk):
             self.update_btn.grid(row=0, column=4, padx=(0, 8))
         else:
             self.update_btn.grid_remove()
+
+    @property
+    def fast(self) -> bool:
+        """Computador sem aceleração de vídeo: evita conversões lentas."""
+        return bool(self.tools) and self.tools.hw_encoder is None
 
     def _show_folder(self) -> None:
         self.folder_label.configure(text=f"📁 Salvando em: {self.settings.base_dir}")
@@ -356,10 +361,8 @@ class App(ctk.CTk):
         if token != self._preview_token:
             return
         self.info = info
-        heights = available_heights(info)
-        top = quality_label(heights[0])
-        self.quality_map = {f"{BEST} ({top})": None}
-        self.quality_map.update({quality_label(h): h for h in heights[1:]})
+        self.quality_map = quality_options(info, fast=self.fast)
+        top = quality_label(available_heights(info)[0])
         labels = list(self.quality_map)
         self.quality_menu.configure(values=labels)
         self.quality_menu.set(labels[0])
@@ -498,7 +501,7 @@ class App(ctk.CTk):
         self.job_item = item_id
         self.job = job = Job(self.tools, app_data_dir() / "tmp",
                              lambda p: self.events.put(("q_progress", (item_id, p))))
-        tools = self.tools
+        tools, fast = self.tools, self.fast
         self._render_queue()
 
         def work(info=info):
@@ -508,7 +511,7 @@ class App(ctk.CTk):
                     info = fetch_info(tools, url)
                     self.events.put(("q_info", (item_id, info)))
                 if kind == "video":
-                    path = job.run_video(url, info, plan_video(info, res), base)
+                    path = job.run_video(url, info, plan_video(info, res, fast=fast), base)
                 else:
                     path = job.run_audio(url, info, base)
                 self.events.put(("q_done", (item_id, path)))

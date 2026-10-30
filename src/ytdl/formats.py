@@ -100,12 +100,28 @@ def _video_key(f: Fmt):
     return (f.fps, f.dynamic_range == "SDR", f.vcodec.startswith("avc1"), f.protocol == "https", f.tbr)
 
 
+def _fast_key(f: Fmt):
+    """Computador sem aceleração: o que não precisa de conversão vem antes de fps."""
+    return (f.vcodec.startswith("avc1"), f.dynamic_range == "SDR", f.fps, f.protocol == "https", f.tbr)
+
+
+def _no_conversion(f: Fmt) -> bool:
+    return f.vcodec.startswith("avc1") and f.dynamic_range == "SDR"
+
+
+def best_fast_height(info: VideoInfo) -> int | None:
+    """Maior resolução (até 4K) que existe em H.264 SDR, ou seja, sem conversão."""
+    fast = [f.res for f in info.video_formats if _no_conversion(f) and f.res <= CAP]
+    return max(fast) if fast else None
+
+
 def _estimate(f: Fmt, duration: int) -> float:
     return f.size if f.size is not None else (f.tbr or f.abr) * 125 * duration
 
 
-def plan_video(info: VideoInfo, res: int | None = None) -> VideoPlan:
-    target = res or available_heights(info)[0]
+def plan_video(info: VideoInfo, res: int | None = None, fast: bool = False) -> VideoPlan:
+    """fast=True: computador sem aceleração de vídeo (evita conversões lentas)."""
+    target = res or (fast and best_fast_height(info)) or available_heights(info)[0]
     candidates = [f for f in info.video_formats if f.res == target]
     scale_to = None
     if not candidates:
@@ -113,7 +129,7 @@ def plan_video(info: VideoInfo, res: int | None = None) -> VideoPlan:
         lowest = min(f.res for f in above)
         candidates = [f for f in above if f.res == lowest]
         scale_to = CAP
-    video = max(candidates, key=_video_key)
+    video = max(candidates, key=_fast_key if fast else _video_key)
     hdr = video.dynamic_range != "SDR"
 
     pool = _audio_pool(info)
@@ -148,6 +164,22 @@ def best_audio(info: VideoInfo) -> Fmt:
 
 def quality_label(res: int) -> str:
     return {2160: "4K", 1440: "1440p (2K)"}.get(res, f"{res}p")
+
+
+BEST = "Melhor disponível"
+SLOW = "lenta neste PC"
+
+
+def quality_options(info: VideoInfo, fast: bool) -> dict[str, int | None]:
+    """Rótulos do seletor de qualidade → resolução (None = melhor para este computador)."""
+    heights = available_heights(info)
+    best = (fast and best_fast_height(info)) or heights[0]
+    options: dict[str, int | None] = {f"{BEST} ({quality_label(best)})": None}
+    for h in heights:
+        if h != best:
+            slow = fast and h > best
+            options[f"{quality_label(h)} ({SLOW})" if slow else quality_label(h)] = h
+    return options
 
 
 def format_duration(seconds: int) -> str:

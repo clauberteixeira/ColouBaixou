@@ -11,7 +11,7 @@ from ytdl.tools import Tools
 
 DATA = json.loads((Path(__file__).parent / "fixtures" / "info_sample.json").read_text("utf-8"))
 INFO = parse_info(DATA)
-TOOLS = Tools(Path("y.exe"), Path("ff"), None)
+TOOLS = Tools(Path("y.exe"), Path("ff"), None, hw_encoder="nvenc")
 URL = "https://www.youtube.com/watch?v=abcdefghijk"
 PLENTY = lambda p: 10**13
 
@@ -183,3 +183,23 @@ def test_fetch_info_error_is_friendly():
     with pytest.raises(DownloadError) as exc:
         fetch_info(TOOLS, URL, run=lambda args, timeout=None: completed(1, "", "ERROR: [youtube] x: Private video"))
     assert "privado" in exc.value.friendly.message
+
+
+def test_transcode_uses_detected_hw_encoder_then_x264(tmp_path):
+    tools = Tools(Path("y.exe"), Path("ff"), None, hw_encoder="qsv")
+    log, events = [], []
+    scripts = [([], 0, "media.mkv"), ([], 1, None), ([], 0, "final.mp4")]
+    job = Job(tools, tmp_path / "tmp", events.append, runner_factory=lambda: FakeRunner(scripts, log),
+              free_space=PLENTY)
+    job.run_video(URL, INFO, plan_video(INFO), tmp_path / "base")
+    assert "h264_qsv" in log[1] and "libx264" in log[2]
+
+
+def test_transcode_without_hw_goes_straight_to_x264(tmp_path):
+    tools = Tools(Path("y.exe"), Path("ff"), None, hw_encoder=None)
+    log = []
+    scripts = [([], 0, "media.mkv"), ([], 0, "final.mp4")]
+    job = Job(tools, tmp_path / "tmp", lambda e: None, runner_factory=lambda: FakeRunner(scripts, log),
+              free_space=PLENTY)
+    job.run_video(URL, INFO, plan_video(INFO), tmp_path / "base")
+    assert len(log) == 2 and "libx264" in log[1]

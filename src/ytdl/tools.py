@@ -1,5 +1,6 @@
 """Localiza, baixa e atualiza as ferramentas externas (yt-dlp, ffmpeg, node)."""
 
+import os
 import shutil
 import subprocess
 import urllib.request
@@ -18,6 +19,7 @@ class Tools:
     ytdlp: Path
     ffmpeg_dir: Path
     node: Path | None
+    hw_encoder: str | None = None  # "nvenc", "qsv", "amf" ou None (só processador)
 
 
 def run_quiet(args: list[str], timeout: float | None = None) -> subprocess.CompletedProcess:
@@ -76,4 +78,9 @@ def load_tools() -> Tools:
     ffmpeg_dir = find_ffmpeg_dir()
     if ffmpeg_dir is None:
         raise RuntimeError("FFmpeg não encontrado.")
-    return Tools(ytdlp=ytdlp, ffmpeg_dir=ffmpeg_dir, node=find_node())
+    from ytdl.hardware import detect_hw_encoder  # evita import circular (hardware usa run_quiet)
+
+    # YTDL_NO_NODE / YTDL_NO_HW simulam um computador sem Node.js / sem aceleração (testes)
+    node = None if os.environ.get("YTDL_NO_NODE") else find_node()
+    hw = None if os.environ.get("YTDL_NO_HW") else detect_hw_encoder(ffmpeg_dir / "ffmpeg.exe")
+    return Tools(ytdlp=ytdlp, ffmpeg_dir=ffmpeg_dir, node=node, hw_encoder=hw)

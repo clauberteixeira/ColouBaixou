@@ -15,6 +15,9 @@ TONEMAP = (
 ENCODERS = {
     # p4: medido ~1,7x mais rápido que p5 no 4K60, mesmo tamanho, SSIM 0,996
     "nvenc": ["-c:v", "h264_nvenc", "-preset", "p4", "-rc", "vbr", "-cq", "19", "-b:v", "0", "-profile:v", "high"],
+    "qsv": ["-c:v", "h264_qsv", "-preset", "medium", "-global_quality", "20", "-profile:v", "high"],
+    "amf": ["-c:v", "h264_amf", "-quality", "quality", "-rc", "cqp", "-qp_i", "20", "-qp_p", "20",
+            "-profile:v", "high"],
     "x264": ["-c:v", "libx264", "-preset", "medium", "-crf", "18", "-profile:v", "high"],
 }
 
@@ -74,7 +77,8 @@ def _filters(plan: VideoPlan) -> str:
     return ",".join(chain)
 
 
-def ffmpeg_args(ffmpeg: Path, src: Path, dst: Path, plan: VideoPlan, encoder: Literal["nvenc", "x264"]) -> list[str]:
+def ffmpeg_args(ffmpeg: Path, src: Path, dst: Path, plan: VideoPlan,
+                encoder: Literal["nvenc", "qsv", "amf", "x264"]) -> list[str]:
     args = [str(ffmpeg), "-y", "-hide_banner", "-nostats", "-progress", "pipe:1",
             "-i", str(src), "-map", "0:v:0", "-map", "0:a:0"]
     if plan.transcode_video:
