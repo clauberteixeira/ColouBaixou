@@ -1,0 +1,9 @@
+[project]
+name = "ytdl"
+version = "0.1.0"
+description = "YouTube Downloader (MP4 até 4K / MP3 320 kbps)"
+requires-python = ">=3.12"
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
