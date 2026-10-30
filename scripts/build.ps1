@@ -3,6 +3,11 @@ $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent $PSScriptRoot
 Set-Location $root
 
+# Com o programa aberto o PyInstaller apaga parte de dist\ e depois falha, deixando o programa quebrado.
+if (Get-Process "YouTube Downloader" -ErrorAction SilentlyContinue) {
+    throw "Feche o YouTube Downloader antes de gerar o programa."
+}
+
 $ffmpeg = (Get-Command ffmpeg -ErrorAction Stop).Source
 $ffprobe = (Get-Command ffprobe -ErrorAction Stop).Source
 Write-Host "FFmpeg: $ffmpeg"

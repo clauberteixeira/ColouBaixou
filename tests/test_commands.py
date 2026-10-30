@@ -38,6 +38,12 @@ def test_base_has_no_playlist_and_node():
     assert pair(a, "--js-runtimes") == "node:node.exe"
 
 
+def test_base_downloads_in_parallel_fragments():
+    a = base_args(T)
+    assert pair(a, "-N") == "8"
+    assert pair(a, "--extractor-args") == "youtube:formats=dashy"
+
+
 def test_base_without_node_omits_js_runtimes():
     assert "--js-runtimes" not in base_args(Tools(Path("y.exe"), Path("ff"), None))
 
@@ -79,6 +85,7 @@ def test_ffmpeg_copy_when_no_transcode():
 def test_ffmpeg_nvenc_sdr():
     a = ffmpeg_args(Path("ffmpeg.exe"), SRC, DST, plan(tv=True), "nvenc")
     assert pair(a, "-c:v") == "h264_nvenc"
+    assert pair(a, "-preset") == "p4"
     assert vf(a) == "format=yuv420p"
 
 
