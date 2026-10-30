@@ -94,8 +94,8 @@ class QueueModel:
             self._queue(item)
         return len(released)
 
-    def current(self) -> Item | None:
-        return next((i for i in self.items if i.status == Status.DOWNLOADING), None)
+    def downloading(self) -> list[Item]:
+        return [i for i in self.items if i.status == Status.DOWNLOADING]
 
     def next_item(self) -> Item | None:
         queued = [i for i in self.items if i.status == Status.QUEUED]
@@ -133,12 +133,12 @@ class QueueModel:
             self.items.remove(item)
         return item
 
-    def cancel_all(self) -> Item | None:
-        """Cancela os itens na fila; devolve o que está baixando (quem chama cancela o Job)."""
+    def cancel_all(self) -> list[Item]:
+        """Cancela os itens na fila; devolve os que estão baixando (quem chama cancela os Jobs)."""
         for item in self.items:
             if item.status == Status.QUEUED:
                 item.status = Status.CANCELLED
-        return self.current()
+        return self.downloading()
 
     def clear_finished(self) -> int:
         before = len(self.items)

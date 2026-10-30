@@ -211,3 +211,25 @@ def test_saved_file_uses_clean_title(tmp_path):
     job, _, _, _ = make_job(tmp_path, [([], 0, "media.mp3")])
     result = job.run_audio(URL, noisy, tmp_path / "base")
     assert result.name == "Dupla - Paredes.mp3"
+
+
+def test_two_jobs_finishing_together_never_overwrite(tmp_path):
+    import threading
+    base = tmp_path / "base"
+    results, errors = [], []
+
+    def run_one():
+        try:
+            job, _, _, _ = make_job(tmp_path, [([], 0, "media.mp3")])
+            results.append(job.run_audio(URL, INFO, base))
+        except Exception as exc:  # pragma: no cover
+            errors.append(exc)
+
+    threads = [threading.Thread(target=run_one) for _ in range(4)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+    assert not errors
+    assert len(set(results)) == 4
+    assert len(list((base / "Áudios" / "Canal Teste").glob("*.mp3"))) == 4

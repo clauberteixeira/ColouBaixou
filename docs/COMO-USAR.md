@@ -70,7 +70,7 @@ Na lista:
 
 ## A fila de downloads
 
-Os vídeos baixam **um de cada vez**, na ordem. Você pode continuar colando links enquanto a fila trabalha.
+A fila baixa **vários vídeos ao mesmo tempo**, na ordem: enquanto um converte, os próximos já estão baixando. São 3 de cada vez em computadores com placa de vídeo NVIDIA e 2 nos demais, para não pesar a máquina nem chamar a atenção do YouTube. Você pode continuar colando links enquanto a fila trabalha.
 
 | Situação | O que significa |
 |---|---|

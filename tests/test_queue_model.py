@@ -68,7 +68,7 @@ def test_cancel_all_keeps_review():
     e = m.add(B, "video", Status.QUEUED)
     f = m.add(C, "video", Status.REVIEW)
     m.start(d.id)
-    assert m.cancel_all() is d
+    assert m.cancel_all() == [d]
     assert e.status == Status.CANCELLED
     assert f.status == Status.REVIEW
     assert m.next_item() is None
@@ -77,7 +77,7 @@ def test_cancel_all_keeps_review():
 def test_cancel_all_with_nothing_running():
     m = QueueModel()
     e = m.add(B, "video", Status.QUEUED)
-    assert m.cancel_all() is None
+    assert m.cancel_all() == []
     assert e.status == Status.CANCELLED
 
 
@@ -89,7 +89,7 @@ def test_remove_downloading_returns_it_and_next_continues():
     removed = m.remove(d.id)
     assert removed is d and removed.status == Status.DOWNLOADING
     assert m.get(d.id) is None and d not in m.items
-    assert m.current() is None
+    assert m.downloading() == []
     assert m.next_item() is nxt
 
 
@@ -159,3 +159,13 @@ def test_mark_previously_downloaded():
     m.mark_previously_downloaded(r.id, Path("x.mp4"))
     assert r.status == Status.DONE and r.previously and r.path == Path("x.mp4")
     assert m.review_checked_count() == 0
+
+
+def test_several_downloading_at_once():
+    m = QueueModel()
+    a, b, c = (m.add(v, "audio", Status.QUEUED) for v in (A, B, C))
+    m.start(m.next_item().id)
+    m.start(m.next_item().id)
+    assert m.downloading() == [a, b]
+    assert m.next_item() is c
+    assert m.cancel_all() == [a, b] and c.status == Status.CANCELLED

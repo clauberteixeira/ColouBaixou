@@ -1,7 +1,7 @@
 import subprocess
 from pathlib import Path
 
-from ytdl.hardware import ENCODER_ORDER, detect_hw_encoder, prefers_fast_mode, probe_args
+from ytdl.hardware import ENCODER_ORDER, detect_hw_encoder, max_parallel, prefers_fast_mode, probe_args
 
 FF = Path("ffmpeg.exe")
 
@@ -47,3 +47,9 @@ def test_fast_mode_unless_nvidia():
     assert prefers_fast_mode("qsv") is True
     assert prefers_fast_mode("amf") is True
     assert prefers_fast_mode(None) is True
+
+
+def test_parallel_downloads_by_hardware():
+    assert max_parallel("nvenc") == 3
+    assert max_parallel("qsv") == 2
+    assert max_parallel(None) == 2
