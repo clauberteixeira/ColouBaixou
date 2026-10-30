@@ -1,5 +1,9 @@
 # Novidades
 
+## 1.1.1 (29/10/2026)
+
+- A janela da playlist, as Configurações e a pergunta "Só este vídeo / Ver a playlist" agora abrem **centralizadas na tela**.
+
 ## 1.1.0 (29/10/2026)
 
 - **Nunca baixa o mesmo vídeo duas vezes**: o programa lembra o que já foi baixado e reconhece os arquivos que já estão na pasta (por formato: MP3 e MP4 são independentes).

@@ -1,6 +1,7 @@
 import queue
 
-from ytdl.app import center_geometry, drain_events
+from ytdl.app import drain_events
+from ytdl.windowing import center_geometry
 
 
 def test_handler_error_does_not_stop_other_events():
