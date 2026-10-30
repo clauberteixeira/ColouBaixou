@@ -20,12 +20,13 @@ from ytdl.downloader import Job, cleanup_stale_temp, fetch_info, fetch_oembed
 from ytdl.errors import BOT_BLOCK, INVALID_LINK, NO_NODE_WARNING, Cancelled, DownloadError, FriendlyError
 from ytdl.formats import VideoInfo, available_heights, format_duration, plan_video, quality_label
 from ytdl.paths import app_data_dir
-from ytdl.playlist import thumb_url
+from ytdl.playlist import PlaylistEntry, thumb_url
+from ytdl.playlist_window import PlaylistWindow, ask_playlist
 from ytdl.queue_model import Kind, QueueModel, Status
 from ytdl.queue_view import ROW_THUMB, QueueView
 from ytdl.settings import SettingsWindow
 from ytdl.tools import Tools, load_tools, update_ytdlp
-from ytdl.urls import canonical_url, extract_video_id, extract_video_ids, should_autofill
+from ytdl.urls import canonical_url, extract_playlist_id, extract_video_id, extract_video_ids, should_autofill
 
 log = logging.getLogger("ytdl")
 
@@ -70,6 +71,7 @@ class App(ctk.CTk):
         self._last_clip: str | None = None
         self._thumb = None  # mantém a referência da imagem viva
         self._settings_window: SettingsWindow | None = None
+        self._asked_playlist: str | None = None
         self._detail_requests: queue.Queue = queue.Queue()
         self._thumb_requests: queue.Queue = queue.Queue()
 
@@ -291,14 +293,36 @@ class App(ctk.CTk):
             self._add_many(text)
             return
         video_id = extract_video_id(text)
+        playlist_id = extract_playlist_id(text)
+        if playlist_id and text != self._asked_playlist:
+            self._asked_playlist = text  # pergunta uma vez por link
+            if video_id is None or ask_playlist(self) == "playlist":
+                self._open_playlist(text, playlist_id, video_id)
+                if video_id is None:
+                    return
         if not text:
             self._clear_preview()
             self._status("")
+        elif video_id is None and playlist_id:
+            return
         elif video_id is None:
             self._clear_preview()
             self._status(INVALID_LINK.message, True)
         elif canonical_url(video_id) != self.url:
             self._load_preview(canonical_url(video_id))
+
+    def _open_playlist(self, url: str, playlist_id: str, preselect: str | None) -> None:
+        PlaylistWindow(self, self.tools, url, playlist_id, preselect, self.default_kind, self._add_playlist)
+
+    def _add_playlist(self, entries: list[PlaylistEntry], kind: Kind) -> None:
+        added, duplicates = self.add_to_queue(
+            [(e.video_id, {"title": e.title, "channel": e.channel, "duration": e.duration}) for e in entries],
+            kind, Status.QUEUED)
+        message = f"{added} vídeos adicionados à fila."
+        if duplicates:
+            message += f" ({duplicates} já estavam na fila)"
+        self._status(message)
+        self.pump_queue()
 
     def _clear_preview(self) -> None:
         self._preview_token += 1
