@@ -12,10 +12,11 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import Callable, Iterator
 
-from ytdl.commands import audio_args, ffmpeg_args, info_args, video_args
+from ytdl.commands import audio_args, ffmpeg_args, info_args, playlist_args, video_args
 from ytdl.errors import NO_SPACE, Cancelled, DownloadError, error_for_live, friendly_error
 from ytdl.formats import VideoInfo, VideoPlan, available_heights, best_audio, parse_info
 from ytdl.paths import destination_path
+from ytdl.playlist import Playlist, parse_playlist, playlist_limit
 from ytdl.progress import DownloadTracker, Progress, parse_dl_line, parse_ffmpeg_line
 from ytdl.tools import NO_WINDOW, Tools, run_quiet
 
@@ -62,6 +63,17 @@ def fetch_info(t: Tools, url: str, run=run_quiet) -> VideoInfo:
     if not available_heights(info) or not info.audio_formats:
         raise DownloadError(friendly_error(""))
     return info
+
+
+def fetch_playlist(t: Tools, url: str, playlist_id: str, run=run_quiet) -> Playlist:
+    limit = playlist_limit(playlist_id)
+    args = playlist_args(t, url, limit)
+    log.info("playlist: %s", args)
+    result = run(args, timeout=300)
+    if result.returncode != 0:
+        log.error("playlist falhou: %s", result.stderr[-4000:])
+        raise DownloadError(friendly_error(result.stderr))
+    return parse_playlist(json.loads(result.stdout), limit)
 
 
 def cleanup_stale_temp(tmp_root: Path) -> None:

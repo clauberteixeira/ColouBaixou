@@ -32,6 +32,15 @@ def base_args(t: Tools) -> list[str]:
     return args
 
 
+def playlist_args(t: Tools, url: str, limit: int) -> list[str]:
+    # sem base_args: ele tem --no-playlist
+    args = [str(t.ytdlp), "--yes-playlist", "--flat-playlist", "-J",
+            "--playlist-end", str(limit), "--encoding", "utf-8"]
+    if t.node:
+        args += ["--js-runtimes", f"node:{t.node}"]
+    return args + [url]
+
+
 def info_args(t: Tools, url: str) -> list[str]:
     return base_args(t) + ["-J", url]
 
