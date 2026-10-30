@@ -1,5 +1,9 @@
 # Novidades
 
+## 1.0.1 (29/10/2026)
+
+- A janela agora abre **centralizada na tela** (e se ajusta em telas pequenas de notebook).
+
 ## 1.0.0 (29/10/2026)
 
 Primeira versão.

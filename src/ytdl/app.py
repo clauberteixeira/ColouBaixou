@@ -59,6 +59,7 @@ class App(ctk.CTk):
             self.after(250, lambda: self.iconbitmap(str(icon)))  # o CTk troca o ícone ao abrir
         self.geometry("840x680")
         self.minsize(640, 540)
+        self._center_on_screen()
 
         self.events: queue.Queue = queue.Queue()
         self.settings = load_config()
@@ -222,6 +223,14 @@ class App(ctk.CTk):
     def fast(self) -> bool:
         """Computador mais simples: "Melhor disponível" evita conversões demoradas."""
         return bool(self.tools) and prefers_fast_mode(self.tools.hw_encoder)
+
+    def _center_on_screen(self) -> None:
+        # usa o tk direto (pixels reais): o geometry() do CustomTkinter multiplica pela escala do Windows
+        self.update_idletasks()
+        scale = self._get_window_scaling()
+        w, h, x, y = center_geometry(round(840 * scale), round(680 * scale),
+                                     self.winfo_screenwidth(), self.winfo_screenheight())
+        tkinter.Tk.geometry(self, f"{w}x{h}+{x}+{y}")
 
     def _show_folder(self) -> None:
         self.folder_label.configure(text=f"📁 Salvando em: {self.settings.base_dir}")
@@ -737,6 +746,16 @@ class App(ctk.CTk):
             if self.worker:
                 self.worker.join(timeout=5)
         self.destroy()
+
+
+SCREEN_FIT = 0.92  # sobra espaço para a barra de tarefas
+
+
+def center_geometry(win_w: int, win_h: int, screen_w: int, screen_h: int) -> tuple[int, int, int, int]:
+    """Tamanho e posição (em pixels da tela) para abrir centralizado, cabendo em telas pequenas."""
+    w = min(win_w, int(screen_w * SCREEN_FIT))
+    h = min(win_h, int(screen_h * SCREEN_FIT))
+    return w, h, max((screen_w - w) // 2, 0), max((screen_h - h) // 2, 0)
 
 
 def drain_events(q: queue.Queue, handle) -> None:
