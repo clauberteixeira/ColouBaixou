@@ -5,6 +5,7 @@ from typing import Literal
 
 from ytdl.formats import VideoPlan
 from ytdl.progress import PROGRESS_TEMPLATE
+from ytdl.titles import TITLE_CLEANUPS
 from ytdl.tools import Tools
 
 OUTPUT_NAME = "media.%(ext)s"
@@ -61,8 +62,17 @@ def audio_args(t: Tools, url: str, audio_format_id: str, tmp: Path) -> list[str]
     return base_args(t) + [
         "-f", audio_format_id, "-x", "--audio-format", "mp3", "--audio-quality", "320K",
         "--embed-thumbnail", "--embed-metadata", "--parse-metadata", "%(channel)s:%(artist)s",
+        *_title_cleanups(),
         "-o", str(tmp / OUTPUT_NAME), url,
     ]
+
+
+def _title_cleanups() -> list[str]:
+    """Mesmas regras do nome do arquivo, aplicadas ao título gravado dentro do MP3."""
+    args: list[str] = []
+    for pattern, replacement in TITLE_CLEANUPS:
+        args += ["--replace-in-metadata", "title", pattern, replacement]
+    return args
 
 
 def _filters(plan: VideoPlan) -> str:
