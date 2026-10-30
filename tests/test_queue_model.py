@@ -139,3 +139,15 @@ def test_add_keeps_extra_fields():
     m = QueueModel()
     item = m.add(A, "audio", Status.QUEUED, title="Música", channel="Canal", duration=200, res=None)
     assert (item.title, item.channel, item.duration, item.checked) == ("Música", "Canal", 200, True)
+
+
+def test_requeue_puts_item_back_first():
+    m = QueueModel()
+    a = m.add(A, "video", Status.QUEUED)
+    b = m.add(B, "video", Status.QUEUED)
+    m.start(a.id)
+    m.fail(a.id, "bloqueado")
+    m.requeue(a.id)
+    assert a.status == Status.QUEUED and a.error is None
+    assert m.next_item() is a
+    assert b.status == Status.QUEUED

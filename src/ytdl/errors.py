@@ -26,6 +26,9 @@ NO_NODE_WARNING = (
     "Instale o Node.js para liberar todas as qualidades."
 )
 
+BOT_BLOCK = FriendlyError(
+    "O YouTube bloqueou temporariamente o download. Tente mais tarde ou atualize o programa.", True)
+
 # Ordem importa: a primeira regra que bater vence.
 RULES: list[tuple[tuple[str, ...], FriendlyError]] = [
     (("getaddrinfo failed", "failed to resolve", "unable to download webpage", "timed out", "no connection"),
@@ -40,8 +43,7 @@ RULES: list[tuple[tuple[str, ...], FriendlyError]] = [
      FriendlyError("Este vídeo está indisponível ou foi removido.")),
     (("no space left", "errno 28", "winerror 112"),
      NO_SPACE),
-    (("not a bot",),
-     FriendlyError("O YouTube bloqueou temporariamente o download. Tente mais tarde ou atualize o programa.", True)),
+    (("not a bot",), BOT_BLOCK),
 ]
 GENERIC = FriendlyError("Não foi possível baixar este vídeo. Tente atualizar o programa.", True)
 

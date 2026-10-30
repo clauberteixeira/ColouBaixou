@@ -1,4 +1,4 @@
-"""Janela principal do YouTube Downloader (modelo B: com prévia)."""
+"""Janela principal do ColouBaixô: prévia, fila de downloads e pasta de destino."""
 
 import io
 import logging
@@ -10,22 +10,26 @@ import tkinter
 import urllib.request
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
+from tkinter import filedialog, messagebox
 
 import customtkinter as ctk
 from PIL import Image
 
-from ytdl.config import Config, load_config
-from ytdl.downloader import Job, cleanup_stale_temp, fetch_info
-from ytdl.errors import INVALID_LINK, NO_NODE_WARNING, Cancelled, DownloadError, FriendlyError
+from ytdl.config import Config, load_config, save_config
+from ytdl.downloader import Job, cleanup_stale_temp, fetch_info, fetch_oembed
+from ytdl.errors import BOT_BLOCK, INVALID_LINK, NO_NODE_WARNING, Cancelled, DownloadError, FriendlyError
 from ytdl.formats import VideoInfo, available_heights, format_duration, plan_video, quality_label
 from ytdl.paths import app_data_dir
-from ytdl.progress import Progress, describe
+from ytdl.playlist import thumb_url
+from ytdl.queue_model import Kind, QueueModel, Status
+from ytdl.queue_view import ROW_THUMB, QueueView
 from ytdl.settings import SettingsWindow
 from ytdl.tools import Tools, load_tools, update_ytdlp
-from ytdl.urls import canonical_url, extract_video_id, should_autofill
+from ytdl.urls import canonical_url, extract_video_id, extract_video_ids, should_autofill
 
 log = logging.getLogger("ytdl")
 
+APP_TITLE = "ColouBaixô"
 BEST = "Melhor disponível"
 THUMB_SIZE = (160, 90)
 DEBOUNCE_MS = 400
@@ -34,15 +38,19 @@ RED = ("#d93025", "#d93025")
 RED_HOVER = ("#b3261e", "#b3261e")
 BLUE = ("#1a73e8", "#1a73e8")
 BLUE_HOVER = ("#1558b0", "#1558b0")
+GRAY = ("gray75", "gray30")
+GRAY_HOVER = ("gray65", "gray40")
 ERROR_COLOR = ("#c5221f", "#f28b82")
+MUTED = ("gray35", "gray65")
+GENERIC_ERROR = FriendlyError("Não foi possível baixar este vídeo. Tente atualizar o programa.", True)
 
 
 class App(ctk.CTk):
     def __init__(self):
         super().__init__()
-        self.title("YouTube Downloader")
-        self.geometry("680x400")
-        self.minsize(560, 360)
+        self.title(APP_TITLE)
+        self.geometry("760x660")
+        self.minsize(640, 540)
 
         self.events: queue.Queue = queue.Queue()
         self.settings = load_config()
@@ -50,7 +58,11 @@ class App(ctk.CTk):
         self.info: VideoInfo | None = None
         self.url: str | None = None  # link canônico do vídeo em prévia
         self.quality_map: dict[str, int | None] = {}
+        self.model = QueueModel()
+        self.default_kind: Kind = "video"
         self.job: Job | None = None
+        self.job_item: int | None = None
+        self.paused = False
         self.worker: threading.Thread | None = None
         self.last_file: Path | None = None
         self._debounce_id = None
@@ -58,14 +70,18 @@ class App(ctk.CTk):
         self._last_clip: str | None = None
         self._thumb = None  # mantém a referência da imagem viva
         self._settings_window: SettingsWindow | None = None
+        self._detail_requests: queue.Queue = queue.Queue()
+        self._thumb_requests: queue.Queue = queue.Queue()
 
         self._build()
         self._set_buttons(False)
+        self._render_queue()
         self.protocol("WM_DELETE_WINDOW", self._on_close)
         self.bind("<FocusIn>", lambda e: self._autofill())
         self.after(POLL_MS, self._poll)
         self._status("Preparando componentes…")
         self._background(self._prepare_tools)
+        self._background(self._thumb_worker)
 
     # --- montagem da tela ---------------------------------------------
 
@@ -74,53 +90,83 @@ class App(ctk.CTk):
         pad = {"padx": 16}
 
         top = ctk.CTkFrame(self, fg_color="transparent")
-        top.grid(row=0, column=0, sticky="ew", pady=(16, 8), **pad)
+        top.grid(row=0, column=0, sticky="ew", pady=(16, 4), **pad)
         top.grid_columnconfigure(0, weight=1)
-        self.entry = ctk.CTkEntry(top, placeholder_text="Cole o link do YouTube aqui…", height=36)
+        self.entry = ctk.CTkEntry(top, placeholder_text="Cole um ou vários links do YouTube aqui…", height=36)
         self.entry.grid(row=0, column=0, sticky="ew")
         self.entry.bind("<KeyRelease>", lambda e: self._schedule_check())
-        self.entry.bind("<<Paste>>", lambda e: self._schedule_check())
+        self.entry.bind("<<Paste>>", self._on_paste)
         ctk.CTkButton(top, text="⚙", width=36, height=36, font=ctk.CTkFont(size=20),
                       command=self.open_settings).grid(row=0, column=1, padx=(8, 0))
 
+        folder = ctk.CTkFrame(self, fg_color="transparent")
+        folder.grid(row=1, column=0, sticky="ew", pady=(0, 4), **pad)
+        folder.grid_columnconfigure(0, weight=1)
+        self.folder_label = ctk.CTkLabel(folder, text="", anchor="w", text_color=MUTED)
+        self.folder_label.grid(row=0, column=0, sticky="ew")
+        ctk.CTkButton(folder, text="Alterar", width=70, height=24, fg_color=GRAY, text_color=("gray10", "gray90"),
+                      hover_color=GRAY_HOVER, command=self._choose_folder).grid(row=0, column=1)
+        self._show_folder()
+
         self.preview = ctk.CTkFrame(self)
-        self.preview.grid(row=1, column=0, sticky="ew", pady=8, **pad)
+        self.preview.grid(row=2, column=0, sticky="ew", pady=4, **pad)
         self.preview.grid_columnconfigure(1, weight=1)
         self.thumb_label = ctk.CTkLabel(self.preview, text="", width=THUMB_SIZE[0], height=THUMB_SIZE[1])
         self.thumb_label.grid(row=0, column=0, rowspan=3, padx=12, pady=12)
         self.title_label = ctk.CTkLabel(self.preview, text="", font=ctk.CTkFont(size=15, weight="bold"),
-                                        anchor="w", justify="left", wraplength=420)
+                                        anchor="w", justify="left", wraplength=480)
         self.title_label.grid(row=0, column=1, sticky="ew", padx=(0, 12), pady=(12, 0))
-        self.meta_label = ctk.CTkLabel(self.preview, text="", anchor="w", text_color=("gray35", "gray65"))
+        self.meta_label = ctk.CTkLabel(self.preview, text="", anchor="w", text_color=MUTED)
         self.meta_label.grid(row=1, column=1, sticky="ew", padx=(0, 12))
-        self.quality_menu = ctk.CTkOptionMenu(self.preview, values=[BEST], width=220)
+        self.quality_menu = ctk.CTkOptionMenu(self.preview, values=[BEST], width=240)
         self.quality_menu.grid(row=2, column=1, sticky="w", padx=(0, 12), pady=(4, 12))
         self.preview.grid_remove()
 
         buttons = ctk.CTkFrame(self, fg_color="transparent")
-        buttons.grid(row=2, column=0, sticky="w", pady=8, **pad)
+        buttons.grid(row=3, column=0, sticky="w", pady=4, **pad)
         self.mp4_btn = ctk.CTkButton(buttons, text="⬇ MP4", width=110, height=36, fg_color=RED,
-                                     hover_color=RED_HOVER, command=lambda: self._start_download("video"))
+                                     hover_color=RED_HOVER, command=lambda: self._add_preview("video"))
         self.mp3_btn = ctk.CTkButton(buttons, text="♪ MP3", width=110, height=36, fg_color=BLUE,
-                                     hover_color=BLUE_HOVER, command=lambda: self._start_download("audio"))
-        self.folder_btn = ctk.CTkButton(buttons, text="📁 Abrir pasta", width=130, height=36,
-                                        fg_color=("gray75", "gray30"), text_color=("gray10", "gray90"),
-                                        hover_color=("gray65", "gray40"), command=self._open_folder)
-        self.cancel_btn = ctk.CTkButton(buttons, text="Cancelar", width=100, height=36,
-                                        fg_color="transparent", border_width=1, text_color=("gray10", "gray90"),
-                                        command=self._cancel)
+                                     hover_color=BLUE_HOVER, command=lambda: self._add_preview("audio"))
+        self.folder_btn = ctk.CTkButton(buttons, text="📁 Abrir pasta", width=130, height=36, fg_color=GRAY,
+                                        text_color=("gray10", "gray90"), hover_color=GRAY_HOVER,
+                                        command=self._open_folder)
         self.update_btn = ctk.CTkButton(buttons, text="Atualizar agora", width=130, height=36,
                                         command=self._update_engine)
         for i, b in enumerate((self.mp4_btn, self.mp3_btn, self.folder_btn)):
             b.grid(row=0, column=i, padx=(0, 8))
 
-        self.progress = ctk.CTkProgressBar(self)
-        self.progress.grid(row=3, column=0, sticky="ew", pady=(8, 4), **pad)
-        self.progress.set(0)
-        self.progress.grid_remove()
-        self.status_label = ctk.CTkLabel(self, text="", anchor="w", justify="left", wraplength=640)
-        self.status_label.grid(row=4, column=0, sticky="ew", pady=(0, 16), **pad)
+        self.status_label = ctk.CTkLabel(self, text="", anchor="w", justify="left", wraplength=720)
+        self.status_label.grid(row=4, column=0, sticky="ew", **pad)
         self._normal_text_color = self.status_label.cget("text_color")
+
+        header = ctk.CTkFrame(self, fg_color="transparent")
+        header.grid(row=5, column=0, sticky="ew", pady=(8, 2), **pad)
+        header.grid_columnconfigure(0, weight=1)
+        self.queue_title = ctk.CTkLabel(header, text="Fila", anchor="w", font=ctk.CTkFont(weight="bold"))
+        self.queue_title.grid(row=0, column=0, sticky="w")
+        ctk.CTkLabel(header, text="Formato para os próximos:", text_color=MUTED).grid(row=0, column=1, padx=(0, 6))
+        self.kind_switch = ctk.CTkSegmentedButton(header, values=["MP4", "MP3"], command=self._on_default_kind)
+        self.kind_switch.set("MP4")
+        self.kind_switch.grid(row=0, column=2)
+
+        self.queue_view = QueueView(self, on_toggle=self._on_toggle, on_kind=self._on_item_kind,
+                                    on_remove=self._on_remove, on_open=self._on_open_item)
+        self.queue_view.grid(row=6, column=0, sticky="nsew", **pad)
+        self.grid_rowconfigure(6, weight=1)
+
+        actions = ctk.CTkFrame(self, fg_color="transparent")
+        actions.grid(row=7, column=0, sticky="ew", pady=(6, 14), **pad)
+        self.release_btn = ctk.CTkButton(actions, text="Baixar selecionados", height=32, command=self._release)
+        self.cancel_all_btn = ctk.CTkButton(actions, text="Cancelar tudo", width=110, height=32, fg_color=GRAY,
+                                            text_color=("gray10", "gray90"), hover_color=GRAY_HOVER,
+                                            command=self._cancel_all)
+        self.clear_btn = ctk.CTkButton(actions, text="Limpar finalizados", width=130, height=32, fg_color=GRAY,
+                                       text_color=("gray10", "gray90"), hover_color=GRAY_HOVER,
+                                       command=self._clear_finished)
+        self.resume_btn = ctk.CTkButton(actions, text="▶ Continuar fila", width=130, height=32, command=self._resume)
+        self.cancel_all_btn.grid(row=0, column=1, padx=(0, 8))
+        self.clear_btn.grid(row=0, column=2)
 
     # --- utilidades de tela -------------------------------------------
 
@@ -138,9 +184,8 @@ class App(ctk.CTk):
         else:
             self.update_btn.grid_remove()
 
-    @property
-    def busy(self) -> bool:
-        return self.job is not None
+    def _show_folder(self) -> None:
+        self.folder_label.configure(text=f"📁 Salvando em: {self.settings.base_dir}")
 
     def _background(self, fn, *args) -> None:
         threading.Thread(target=fn, args=args, daemon=True).start()
@@ -169,8 +214,10 @@ class App(ctk.CTk):
         self.tools = tools
         self._status(NO_NODE_WARNING if tools.node is None else "")
         self._background(self._silent_update)
+        self._background(self._detail_worker)
         self._autofill()
         self._check_entry()
+        self.pump_queue()
 
     def _on_tools_failed(self, message: str) -> None:
         self._status("Não foi possível preparar os componentes. Verifique a internet e abra o programa de novo.", True)
@@ -213,10 +260,21 @@ class App(ctk.CTk):
         if clip == self._last_clip:
             return
         self._last_clip = clip
-        if should_autofill(clip, self.entry.get(), self.busy):
+        if should_autofill(clip, self.entry.get(), busy=False):
             self.entry.delete(0, "end")
             self.entry.insert(0, clip.strip())
             self._check_entry()
+
+    def _on_paste(self, _event=None):
+        try:
+            clip = self.clipboard_get()
+        except tkinter.TclError:
+            return None
+        if len(extract_video_ids(clip)) >= 2:
+            self._add_many(clip)
+            return "break"
+        self._schedule_check()
+        return None
 
     def _schedule_check(self) -> None:
         if self._debounce_id:
@@ -225,9 +283,13 @@ class App(ctk.CTk):
 
     def _check_entry(self) -> None:
         self._debounce_id = None
-        if self.busy or not self.tools:
+        if not self.tools:
             return
         text = self.entry.get().strip()
+        if len(extract_video_ids(text)) >= 2:
+            self.entry.delete(0, "end")
+            self._add_many(text)
+            return
         video_id = extract_video_id(text)
         if not text:
             self._clear_preview()
@@ -254,7 +316,7 @@ class App(ctk.CTk):
         def work():
             try:
                 info = fetch_info(self.tools, url)
-                image = _download_thumbnail(info.thumbnail_url)
+                image = _download_image(info.thumbnail_url, THUMB_SIZE)
                 self.events.put(("preview", (token, info, image)))
             except DownloadError as exc:
                 self.events.put(("preview_failed", (token, exc.friendly)))
@@ -297,87 +359,245 @@ class App(ctk.CTk):
         self._status(friendly.message, True)
         self._show_update_button(friendly.suggest_update)
 
-    # --- download -----------------------------------------------------
+    # --- fila: entrada de itens -----------------------------------------
 
-    def _start_download(self, kind: str) -> None:
-        if self.busy or not self.info:
+    def add_to_queue(self, entries: list[tuple[str, dict]], kind: Kind, status: Status) -> tuple[int, int]:
+        """Adiciona itens; devolve (adicionados, repetidos)."""
+        added = duplicates = 0
+        for video_id, fields in entries:
+            item = self.model.add(video_id, kind, status, **fields)
+            if item is None:
+                duplicates += 1
+                continue
+            added += 1
+            self._thumb_requests.put(video_id)
+            if item.title is None:
+                self._detail_requests.put((item.id, video_id))
+        self._render_queue()
+        return added, duplicates
+
+    def _add_preview(self, kind: Kind) -> None:
+        if not self.info:
             return
-        info, url = self.info, self.url
-        base = self.settings.base_dir
-        self.job = Job(self.tools, app_data_dir() / "tmp", lambda p: self.events.put(("progress", p)))
-        job = self.job
-        plan = plan_video(info, self.quality_map.get(self.quality_menu.get())) if kind == "video" else None
-
-        self._set_buttons(False)
-        self.entry.configure(state="disabled")
+        info = self.info
+        res = self.quality_map.get(self.quality_menu.get()) if kind == "video" else None
+        added, _ = self.add_to_queue(
+            [(info.id, {"title": info.title, "channel": info.channel, "duration": info.duration,
+                        "info": info, "res": res})], kind, Status.QUEUED)
         self._show_update_button(False)
-        self.cancel_btn.grid(row=0, column=3, padx=(0, 8))
-        self.progress.grid()
-        self._set_progress(0.0)
-        self._status("Iniciando download…")
+        self._status(f"Adicionado à fila: {info.title}" if added else "Já está na fila.")
+        self.pump_queue()
 
-        def work():
+    def _add_many(self, text: str) -> None:
+        ids = extract_video_ids(text)
+        pieces = [p for p in text.split() if "youtu" in p.lower() or "://" in p]
+        unrecognized = sum(1 for p in pieces if extract_video_id(p) is None)
+        added, duplicates = self.add_to_queue([(v, {}) for v in ids], self.default_kind, Status.REVIEW)
+        message = f"{added} links adicionados para revisão: desmarque o que não quiser e clique em Baixar selecionados."
+        if duplicates:
+            message += f" ({duplicates} já estavam na fila)"
+        if unrecognized:
+            message += f" {unrecognized} links não reconhecidos."
+        self._status(message)
+
+    # --- fila: ações do usuário -------------------------------------------
+
+    def _on_default_kind(self, label: str) -> None:
+        self.default_kind = "audio" if label == "MP3" else "video"
+
+    def _on_toggle(self, item_id: int, checked: bool) -> None:
+        self.model.set_checked(item_id, checked)
+        self._render_queue()
+
+    def _on_item_kind(self, item_id: int, kind: Kind) -> None:
+        if not self.model.set_kind(item_id, kind):
+            self._status("Este vídeo já está na fila nesse formato.", True)
+        self._render_queue()
+
+    def _on_remove(self, item_id: int) -> None:
+        item = self.model.remove(item_id)
+        if item and item.status == Status.DOWNLOADING and self.job:
+            self.job.cancel()
+        self._render_queue()
+
+    def _on_open_item(self, item_id: int) -> None:
+        item = self.model.get(item_id)
+        if item and item.status == Status.DONE and item.path and item.path.exists():
+            subprocess.Popen(f'explorer /select,"{item.path}"')
+
+    def _release(self) -> None:
+        self.model.release_checked()
+        self._render_queue()
+        self.pump_queue()
+
+    def _cancel_all(self) -> None:
+        current = self.model.cancel_all()
+        if current and self.job:
+            self.job.cancel()
+        self._render_queue()
+
+    def _clear_finished(self) -> None:
+        self.model.clear_finished()
+        self._render_queue()
+
+    def _render_queue(self) -> None:
+        self.queue_view.render(self.model.items)
+        self.queue_title.configure(text=f"Fila ({len(self.model.items)})")
+        pending = self.model.review_checked_count()
+        if pending:
+            self.release_btn.configure(text=f"Baixar selecionados ({pending})")
+            self.release_btn.grid(row=0, column=0, padx=(0, 8))
+        else:
+            self.release_btn.grid_remove()
+        if self.paused:
+            self.resume_btn.grid(row=0, column=3, padx=(8, 0))
+        else:
+            self.resume_btn.grid_remove()
+
+    # --- fila: execução ---------------------------------------------------
+
+    def _resume(self) -> None:
+        self.paused = False
+        self._status("Continuando a fila…")
+        self._render_queue()
+        self.pump_queue()
+
+    def pump_queue(self) -> None:
+        if self.job or not self.tools or self.paused:
+            return
+        item = self.model.next_item()
+        if item is None:
+            return
+        self.model.start(item.id)
+        item_id, video_id, kind, info, res = item.id, item.video_id, item.kind, item.info, item.res
+        base = self.settings.base_dir  # a pasta vale a partir do início de cada item
+        self.job_item = item_id
+        self.job = job = Job(self.tools, app_data_dir() / "tmp",
+                             lambda p: self.events.put(("q_progress", (item_id, p))))
+        tools = self.tools
+        self._render_queue()
+
+        def work(info=info):
+            url = canonical_url(video_id)
             try:
-                path = job.run_video(url, info, plan, base) if plan else job.run_audio(url, info, base)
-                self.events.put(("done", path))
+                if info is None:
+                    info = fetch_info(tools, url)
+                    self.events.put(("q_info", (item_id, info)))
+                if kind == "video":
+                    path = job.run_video(url, info, plan_video(info, res), base)
+                else:
+                    path = job.run_audio(url, info, base)
+                self.events.put(("q_done", (item_id, path)))
             except Cancelled:
-                self.events.put(("cancelled", None))
+                self.events.put(("q_cancelled", item_id))
             except DownloadError as exc:
-                self.events.put(("failed", exc.friendly))
+                self.events.put(("q_failed", (item_id, exc.friendly)))
             except Exception:
                 log.exception("falha inesperada no download")
-                self.events.put(("failed", FriendlyError(
-                    "Não foi possível baixar este vídeo. Tente atualizar o programa.", True)))
+                self.events.put(("q_failed", (item_id, GENERIC_ERROR)))
 
         self.worker = threading.Thread(target=work, daemon=True)
         self.worker.start()
 
-    def _set_progress(self, fraction: float | None) -> None:
-        if fraction is None:
-            if self.progress.cget("mode") != "indeterminate":
-                self.progress.configure(mode="indeterminate")
-                self.progress.start()
-            return
-        if self.progress.cget("mode") != "determinate":
-            self.progress.stop()
-            self.progress.configure(mode="determinate")
-        self.progress.set(fraction)
+    def _job_finished(self, item_id: int) -> None:
+        if self.job_item == item_id:
+            self.job = self.job_item = self.worker = None
+        self._render_queue()
+        self.pump_queue()
 
-    def _on_progress(self, p: Progress) -> None:
-        if not self.busy:
-            return
-        self._set_progress(None if p.percent is None else p.percent / 100)
-        self._status(describe(p))
+    def _on_q_progress(self, payload) -> None:
+        item_id, progress = payload
+        item = self.model.get(item_id)
+        if item and item.status == Status.DOWNLOADING:
+            item.progress = progress
+            self.queue_view.update_item(item)
 
-    def _finish(self) -> None:
-        self.job = None
-        self.worker = None
-        self.cancel_btn.grid_remove()
-        self._set_progress(0.0)
-        self.progress.grid_remove()
-        self.entry.configure(state="normal")
-        self._set_buttons(self.info is not None)
+    def _on_q_info(self, payload) -> None:
+        item_id, info = payload
+        if item := self.model.get(item_id):
+            item.info, item.title, item.channel, item.duration = info, info.title, info.channel, info.duration
+            self.queue_view.update_item(item)
 
-    def _on_done(self, path: Path) -> None:
-        self._finish()
+    def _on_q_done(self, payload) -> None:
+        item_id, path = payload
+        self.model.finish(item_id, path)
         self.last_file = path
-        self._status(f"Concluído: {path}")
+        self._job_finished(item_id)
 
-    def _on_failed(self, friendly: FriendlyError) -> None:
-        self._finish()
-        self._status(friendly.message, True)
-        self._show_update_button(friendly.suggest_update)
+    def _on_q_failed(self, payload) -> None:
+        item_id, friendly = payload
+        if friendly == BOT_BLOCK:
+            # bloqueio vale para todos os vídeos: pausa em vez de marcar a fila inteira como erro
+            self.model.requeue(item_id)
+            self.paused = True
+            self._status("O YouTube bloqueou temporariamente os downloads desta internet. "
+                         "A fila foi pausada; tente continuar daqui a algum tempo.", True)
+        else:
+            self.model.fail(item_id, friendly.message)
+            self._show_update_button(friendly.suggest_update)
+        self._job_finished(item_id)
 
-    def _on_cancelled(self, _) -> None:
-        self._finish()
-        self._status("Download cancelado.")
+    def _on_q_cancelled(self, item_id: int) -> None:
+        self.model.mark_cancelled(item_id)
+        self._job_finished(item_id)
 
-    def _cancel(self) -> None:
-        if self.job:
-            self._status("Cancelando…")
-            self.job.cancel()
+    # --- trabalhadores em segundo plano -----------------------------------
+
+    def _detail_worker(self) -> None:
+        """Busca título/canal dos itens colados, um por vez."""
+        while True:
+            item_id, video_id = self._detail_requests.get()
+            try:
+                # consulta leve primeiro: poupa extrações do yt-dlp (o YouTube bloqueia excesso)
+                basic = fetch_oembed(video_id)
+                if basic:
+                    self.events.put(("q_basic", (item_id, basic)))
+                    continue
+                info = fetch_info(self.tools, canonical_url(video_id))
+                self.events.put(("q_info", (item_id, info)))
+            except DownloadError as exc:
+                self.events.put(("q_info_failed", (item_id, exc.friendly.message)))
+            except Exception:
+                log.exception("falha ao buscar detalhes")
+                self.events.put(("q_info_failed", (item_id, GENERIC_ERROR.message)))
+
+    def _on_q_basic(self, payload) -> None:
+        item_id, (title, channel) = payload
+        if item := self.model.get(item_id):
+            item.title, item.channel = title, channel
+            self.queue_view.update_item(item)
+
+    def _on_q_info_failed(self, payload) -> None:
+        item_id, message = payload
+        item = self.model.get(item_id)
+        if item and item.status in (Status.REVIEW, Status.QUEUED):
+            self.model.fail(item_id, message)
+            self._render_queue()
+
+    def _thumb_worker(self) -> None:
+        seen: set[str] = set()
+        while True:
+            video_id = self._thumb_requests.get()
+            if video_id in seen:
+                continue
+            seen.add(video_id)
+            image = _download_image(thumb_url(video_id), ROW_THUMB)
+            if image:
+                self.events.put(("thumb", (video_id, image)))
+
+    def _on_thumb(self, payload) -> None:
+        video_id, image = payload
+        self.queue_view.set_thumb(video_id, ctk.CTkImage(light_image=image, dark_image=image, size=ROW_THUMB))
 
     # --- pasta e configurações ----------------------------------------
+
+    def _choose_folder(self) -> None:
+        chosen = filedialog.askdirectory(parent=self, initialdir=self.settings.base_dir,
+                                         title="Escolha a pasta onde salvar")
+        if chosen:
+            config = Config(base_dir=Path(chosen))
+            save_config(config)
+            self._on_settings_saved(config)
 
     def _open_folder(self) -> None:
         if self.last_file and self.last_file.exists():
@@ -396,9 +616,12 @@ class App(ctk.CTk):
     def _on_settings_saved(self, config: Config) -> None:
         self.settings = config
         self.last_file = None
+        self._show_folder()
 
     def _on_close(self) -> None:
         if self.job:
+            if not messagebox.askyesno(APP_TITLE, "Há downloads em andamento. Fechar e cancelar?", parent=self):
+                return
             self.job.cancel()
             if self.worker:
                 self.worker.join(timeout=5)
@@ -418,13 +641,13 @@ def drain_events(q: queue.Queue, handle) -> None:
             log.exception("erro ao tratar o evento %s", kind)
 
 
-def _download_thumbnail(url: str | None) -> Image.Image | None:
+def _download_image(url: str | None, size: tuple[int, int]) -> Image.Image | None:
     if not url:
         return None
     try:
         with urllib.request.urlopen(url, timeout=15) as resp:
             image = Image.open(io.BytesIO(resp.read())).convert("RGB")
-        return image.resize(THUMB_SIZE, Image.LANCZOS)
+        return image.resize(size, Image.LANCZOS)
     except Exception:
         log.warning("miniatura indisponível: %s", url)
         return None

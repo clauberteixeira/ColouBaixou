@@ -117,6 +117,11 @@ class QueueModel:
         if (item := self.get(item_id)) and item.status in ACTIVE:
             item.status, item.progress = Status.CANCELLED, None
 
+    def requeue(self, item_id: int) -> None:
+        """Devolve o item à fila na mesma posição (ex.: YouTube bloqueou temporariamente)."""
+        if item := self.get(item_id):
+            item.status, item.error, item.progress = Status.QUEUED, None, None
+
     def remove(self, item_id: int) -> Item | None:
         item = self.get(item_id)
         if item:
