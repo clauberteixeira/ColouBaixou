@@ -1,6 +1,8 @@
 import pytest
 
-from ytdl.progress import DlLine, DownloadTracker, parse_dl_line, parse_ffmpeg_line
+from ytdl.progress import DlLine, DownloadTracker, Progress, describe, parse_dl_line, parse_ffmpeg_line
+
+MB = 1024 * 1024
 
 
 def test_parse_full_line():
@@ -37,6 +39,25 @@ def test_ffmpeg_progress():
     assert parse_ffmpeg_line("progress=continue", 60) is None
     assert parse_ffmpeg_line("out_time_us=99000000", 60) == 100.0
     assert parse_ffmpeg_line("out_time_us=5000000", 0) is None
+
+
+def test_describe_download():
+    p = Progress("download", 35.0, 48 * MB, 137 * MB, 20)
+    assert describe(p) == "35% · 48 MB de 137 MB · faltam ~20s"
+
+
+def test_describe_download_long_eta_in_minutes():
+    assert describe(Progress("download", 10.0, 1 * MB, 10 * MB, 185)).endswith("faltam ~3 min")
+
+
+def test_describe_unknown_total():
+    assert describe(Progress("download", None, 48 * MB, None, None)) == "48 MB baixados"
+
+
+def test_describe_convert_and_mp3():
+    assert describe(Progress("convert", 42.4, None, None, None)) == \
+        "Convertendo para formato compatível… 42% (pode levar alguns minutos)"
+    assert describe(Progress("mp3", None, None, None, None)) == "Convertendo para MP3…"
 
 
 def test_ffmpeg_negative_start_time_is_zero():

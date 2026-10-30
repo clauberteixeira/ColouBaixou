@@ -19,6 +19,7 @@ GENERIC = "Não foi possível baixar este vídeo. Tente atualizar o programa."
     ("ERROR: [youtube] abc: Sign in to confirm your age. This video may be inappropriate for some users.", AGE, False),
     ("ERROR: [youtube] abc: Join this channel to get access to members-only content like this video", MEMBERS, False),
     ("ERROR: [youtube] abc: Video unavailable. This video has been removed by the uploader", UNAVAILABLE, False),
+    ("ERROR: [youtube] aaaaaaaaaaa: This video is unavailable", UNAVAILABLE, False),
     ("ERROR: unable to write data: [Errno 28] No space left on device", NO_SPACE.message, False),
     ("OSError: [WinError 112] Não há espaço suficiente no disco", NO_SPACE.message, False),
     ("ERROR: [youtube] abc: Sign in to confirm you're not a bot.", BOT, True),

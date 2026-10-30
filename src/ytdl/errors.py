@@ -36,7 +36,7 @@ RULES: list[tuple[tuple[str, ...], FriendlyError]] = [
      FriendlyError("Este vídeo tem restrição de idade e precisa de login. Isso não é suportado.")),
     (("members-only", "join this channel"),
      FriendlyError("Este vídeo é exclusivo para membros do canal e não pode ser baixado.")),
-    (("video unavailable", "has been removed", "this video is not available"),
+    (("video unavailable", "video is unavailable", "has been removed", "this video is not available"),
      FriendlyError("Este vídeo está indisponível ou foi removido.")),
     (("no space left", "errno 28", "winerror 112"),
      NO_SPACE),

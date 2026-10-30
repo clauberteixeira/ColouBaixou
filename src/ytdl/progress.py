@@ -73,6 +73,26 @@ class DownloadTracker:
         return Progress("download", percent, downloaded, total, line.eta)
 
 
+MB = 1024 * 1024
+
+
+def _eta(seconds: int) -> str:
+    return f"~{seconds}s" if seconds < 60 else f"~{round(seconds / 60)} min"
+
+
+def describe(p: Progress) -> str:
+    """Texto de status para a janela."""
+    if p.stage == "mp3":
+        return "Convertendo para MP3…"
+    if p.stage == "convert":
+        return f"Convertendo para formato compatível… {round(p.percent or 0)}% (pode levar alguns minutos)"
+    done = round((p.downloaded or 0) / MB)
+    if p.total is None:
+        return f"{done} MB baixados"
+    text = f"{round(p.percent or 0)}% · {done} MB de {round(p.total / MB)} MB"
+    return text + (f" · faltam {_eta(p.eta)}" if p.eta else "")
+
+
 def parse_ffmpeg_line(line: str, duration_s: int) -> float | None:
     key, _, value = line.strip().partition("=")
     if key != "out_time_us" or duration_s <= 0:
