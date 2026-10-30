@@ -114,6 +114,8 @@ YouTube\
         └── Título do vídeo.mp3
 ```
 
+O nome do arquivo sai **limpo**: o programa tira o que só polui o título, como `[Vídeo Oficial]`, `(Ao Vivo)`, `| DVD …` e hashtags. Exemplo: *"Jorge & Mateus - Paredes (Como Sempre Feito Nunca) [Vídeo Oficial]"* vira **`Jorge & Mateus - Paredes.mp3`**. Participações, como `(feat. Fulano)` e `(Part. Fulano)`, continuam no nome. No MP3, o título que aparece no celular ou no player também sai limpo.
+
 Se dois vídeos **diferentes** tiverem exatamente o mesmo título no mesmo canal, o segundo ganha um número, como `Título (2).mp4`. Nada é apagado.
 
 **📁 Abrir pasta** abre a pasta do último arquivo baixado.

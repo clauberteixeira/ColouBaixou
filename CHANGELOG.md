@@ -1,7 +1,8 @@
 # Novidades
 
-## 1.1.1 (29/10/2026)
+## 1.2.0 (29/10/2026)
 
+- **Nomes de arquivo limpos**: sai o que polui o título, como "[Vídeo Oficial]", "(Ao Vivo)", "| DVD …" e hashtags. Participações (feat./part.) continuam. No MP3, o título da música também sai limpo.
 - A janela da playlist, as Configurações e a pergunta "Só este vídeo / Ver a playlist" agora abrem **centralizadas na tela**.
 
 ## 1.1.0 (29/10/2026)

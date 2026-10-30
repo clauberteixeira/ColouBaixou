@@ -203,3 +203,11 @@ def test_transcode_without_hw_goes_straight_to_x264(tmp_path):
               free_space=PLENTY)
     job.run_video(URL, INFO, plan_video(INFO), tmp_path / "base")
     assert len(log) == 2 and "libx264" in log[1]
+
+
+def test_saved_file_uses_clean_title(tmp_path):
+    import dataclasses
+    noisy = dataclasses.replace(INFO, title="Dupla - Paredes (Como Sempre Feito Nunca) [Vídeo Oficial]")
+    job, _, _, _ = make_job(tmp_path, [([], 0, "media.mp3")])
+    result = job.run_audio(URL, noisy, tmp_path / "base")
+    assert result.name == "Dupla - Paredes.mp3"

@@ -135,3 +135,11 @@ def test_base_uses_deno_when_no_node():
 def test_playlist_args_use_deno_too():
     a = playlist_args(Tools(Path("y.exe"), Path("ff"), None, deno=Path("deno.exe")), "U", 50)
     assert pair(a, "--js-runtimes") == "deno:deno.exe"
+
+
+def test_audio_args_clean_title_inside_mp3():
+    from ytdl.titles import TITLE_CLEANUPS
+    a = audio_args(T, "U", "251", TMP)
+    triples = [tuple(a[i + 1:i + 4]) for i, x in enumerate(a) if x == "--replace-in-metadata"]
+    assert triples == [("title", p, r) for p, r in TITLE_CLEANUPS]
+    assert a[-1] == "U"

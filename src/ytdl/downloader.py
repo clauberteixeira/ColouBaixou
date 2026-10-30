@@ -19,6 +19,7 @@ from ytdl.errors import NO_SPACE, Cancelled, DownloadError, error_for_live, frie
 from ytdl.formats import VideoInfo, VideoPlan, available_heights, best_audio, parse_info
 from ytdl.paths import destination_path
 from ytdl.playlist import Playlist, parse_playlist, playlist_limit
+from ytdl.titles import clean_title
 from ytdl.progress import DownloadTracker, Progress, parse_dl_line, parse_ffmpeg_line
 from ytdl.tools import NO_WINDOW, Tools, run_quiet
 
@@ -218,7 +219,7 @@ class Job:
             raise DownloadError(friendly_error(""))
 
     def _deliver(self, src: Path, base_dir: Path, kind, info: VideoInfo) -> Path:
-        dest = destination_path(base_dir, kind, info.channel, info.title)
+        dest = destination_path(base_dir, kind, info.channel, clean_title(info.title))
         # Entre discos diferentes o move vira cópia; copia para .part e só renomeia no fim,
         # para nunca deixar um arquivo pela metade com o nome final.
         part = dest.with_name(dest.name + ".part")
