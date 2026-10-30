@@ -41,6 +41,7 @@ class Item:
     progress: Progress | None = None
     error: str | None = None
     path: Path | None = None
+    previously: bool = False  # já estava baixado antes de entrar na fila
     released_seq: int | None = field(default=None, repr=False)
 
 
@@ -108,6 +109,10 @@ class QueueModel:
     def finish(self, item_id: int, path: Path) -> None:
         if item := self.get(item_id):
             item.status, item.path, item.progress = Status.DONE, path, None
+
+    def mark_previously_downloaded(self, item_id: int, path: Path) -> None:
+        if (item := self.get(item_id)) and item.status in (Status.REVIEW, Status.QUEUED):
+            item.status, item.path, item.previously = Status.DONE, path, True
 
     def fail(self, item_id: int, message: str) -> None:
         if (item := self.get(item_id)) and item.status in ACTIVE:

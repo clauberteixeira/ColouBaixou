@@ -14,6 +14,10 @@ Alguns antivírus desconfiam de programas novos feitos em Python, sem motivo rea
 
 O YouTube limita quem faz muitos downloads seguidos da mesma internet. A fila **pausa sozinha**. Espere algumas horas e clique em **▶ Continuar fila**. Isso é raro com uso normal.
 
+### O programa disse "Você já baixou este vídeo".
+
+Ele evita baixar o mesmo vídeo duas vezes no mesmo formato. Clique em **📁 Abrir pasta** para ver o arquivo. Se quiser baixar de novo, apague o arquivo antigo primeiro.
+
 ### Onde ficou o arquivo?
 
 Clique em **✔ Concluído** na fila, ou no botão **📁 Abrir pasta**. A pasta principal aparece no topo da tela, em **📁 Salvando em**. Vídeos ficam em `Vídeos\<Canal>` e áudios em `Áudios\<Canal>`.

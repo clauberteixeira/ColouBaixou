@@ -1,5 +1,11 @@
 # Novidades
 
+## 1.1.0 (29/10/2026)
+
+- **Nunca baixa o mesmo vídeo duas vezes**: o programa lembra o que já foi baixado e reconhece os arquivos que já estão na pasta (por formato: MP3 e MP4 são independentes).
+- **Tela da playlist renovada**: miniatura de cada vídeo, caixinhas de seleção bem visíveis, contador de selecionados e aviso "✔ Já baixado".
+- Caixinhas de seleção redesenhadas também na fila.
+
 ## 1.0.2 (29/10/2026)
 
 - A escolha da pasta fica só na tela principal (botão **📂 Escolher pasta**); as Configurações mostram atualizações e informações do programa.

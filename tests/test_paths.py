@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from ytdl.paths import destination_path, sanitize_component, unique_path
+from ytdl.paths import destination_path, planned_path, sanitize_component, unique_path
 
 
 def test_removes_forbidden_chars():
@@ -48,3 +48,9 @@ def test_destination_with_emoji_title_is_creatable(tmp_path):
     p = destination_path(tmp_path, "audio", "🎸 Rock", "🔥" * 100)
     p.write_bytes(b"ok")
     assert p.exists()
+
+
+def test_planned_path_has_no_side_effects(tmp_path):
+    p = planned_path(tmp_path, "audio", "Canal: X", "Música?")
+    assert p == tmp_path / "Áudios" / "Canal X" / "Música.mp3"
+    assert not p.parent.exists()

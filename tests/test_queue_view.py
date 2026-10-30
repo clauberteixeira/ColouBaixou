@@ -2,7 +2,7 @@ from pathlib import Path
 
 from ytdl.progress import Progress
 from ytdl.queue_model import Item, Status
-from ytdl.queue_view import display_title, row_tag, row_values, status_text
+from ytdl.queue_view import display_title, row_check, row_tag, row_values, status_text
 
 MB = 1024 * 1024
 
@@ -34,15 +34,24 @@ def test_display_title_failed_without_details_is_not_loading():
 
 
 def test_row_values_by_status():
-    assert row_values(item(Status.REVIEW, title="T", channel="C")) == ("☑", "T", "C", "MP4 ▾", "Em revisão", "✕")
-    assert row_values(item(Status.REVIEW, title="T", channel="C", checked=False))[0] == "☐"
-    assert row_values(item(Status.QUEUED, title="T", channel="C")) == ("", "T", "C", "MP4 ▾", "Aguardando", "✕")
+    assert row_values(item(Status.REVIEW, title="T", channel="C")) == ("T", "C", "MP4 ▾", "Em revisão", "✕")
+    assert row_values(item(Status.QUEUED, title="T", channel="C")) == ("T", "C", "MP4 ▾", "Aguardando", "✕")
     running = item(Status.DOWNLOADING, title="T", channel="C", progress=Progress("download", 62.0, 48 * MB, 77 * MB, 5))
-    assert row_values(running) == ("", "T", "C", "MP4", "62% · 48 MB de 77 MB · faltam ~5s", "✕")
-    assert row_values(item(Status.DONE, title="T", channel=None, path=Path("x")))[2:4] == ("", "MP4")
+    assert row_values(running) == ("T", "C", "MP4", "62% · 48 MB de 77 MB · faltam ~5s", "✕")
+    assert row_values(item(Status.DONE, title="T", channel=None, path=Path("x")))[1:3] == ("", "MP4")
+
+
+def test_row_check_only_in_review():
+    assert row_check(item(Status.REVIEW)) == "on"
+    assert row_check(item(Status.REVIEW, checked=False)) == "off"
+    assert row_check(item(Status.QUEUED)) is None
 
 
 def test_row_tag():
     assert row_tag(item(Status.ERROR, error="x")) == "error"
     assert row_tag(item(Status.DONE, path=Path("x"))) == "done"
     assert row_tag(item(Status.QUEUED)) == "normal"
+
+
+def test_status_previously_downloaded():
+    assert status_text(item(Status.DONE, path=Path("x"), previously=True)) == ("✔ Já baixado antes (clique para abrir)", False)
