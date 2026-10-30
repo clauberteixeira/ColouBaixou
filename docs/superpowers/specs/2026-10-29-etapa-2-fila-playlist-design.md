@@ -118,3 +118,30 @@ Cada item tem uma situação. Antes de baixar, existem duas:
 - Estrutura interna dos widgets e como a lista é redesenhada.
 - Texto exato dos avisos curtos, desde que em português simples.
 - Altura da área da fila e tamanho da janela (pode crescer).
+
+## Adendo: rodar em qualquer computador e instalador
+
+Pedido do usuário: o programa vai ser passado para outras pessoas (esposa, sogro), em computadores possivelmente mais fracos e sem placa NVIDIA. Ele precisa se adaptar ao hardware de cada um, ser leve e ter um instalador. O usuário deixou o "como" com o Claude.
+
+### Adaptação ao hardware (escolha do Claude)
+- Ao preparar os componentes, o programa testa os codificadores por hardware nesta ordem: **NVIDIA (h264_nvenc) → Intel Quick Sync (h264_qsv) → AMD (h264_amf)**. O teste é codificar alguns quadros de uma imagem sintética. O primeiro que funcionar é usado. Se nenhum funcionar, a máquina é tratada como "sem aceleração".
+- A conversão tenta o codificador detectado e, se ele falhar, cai para o processador (x264), sem erro para o usuário.
+- **Com aceleração**, tudo segue como na Etapa 1: "Melhor disponível" vai até 4K.
+- **Sem aceleração**:
+  - "Melhor disponível" passa a ser a maior resolução que existe em H.264 SDR, ou seja, sem conversão (normalmente 1080p).
+  - Nessa resolução, o vídeo H.264 é preferido mesmo com menos quadros por segundo.
+  - Resoluções acima disso continuam no seletor, com o rótulo "(lenta neste PC)".
+  - Itens da fila e da playlist seguem a mesma regra.
+  - Se o vídeo não tiver nenhuma versão H.264, vale a regra normal.
+- O download (8 partes paralelas) não depende do hardware.
+
+### Componentes em qualquer máquina
+- Runtime JavaScript do yt-dlp: usa o Node.js se existir. Se não existir, o **Deno** é baixado na primeira execução para `%LOCALAPPDATA%\YoutubeForDownload\bin\`, como já acontece com o yt-dlp.
+- FFmpeg: trocar a versão "full" (2 × 213 MB) pela **"essentials"** do mesmo autor (Gyan), desde que ela tenha os codificadores por hardware, o libx264 e o zscale/tonemap. Isso é conferido antes de trocar.
+
+### Instalador
+- **Inno Setup**, em português, instalação por usuário (sem pedir administrador), em `%LOCALAPPDATA%\Programs\ColouBaixou`.
+- Atalho na área de trabalho e no menu Iniciar, com desinstalação pelo Windows.
+- Windows 10/11 64 bits.
+- Arquivo gerado: `ColouBaixou-Setup-<versão>.exe`.
+- O programa não tem assinatura digital: o README explica o aviso "O Windows protegeu o computador" (Mais informações → Executar assim mesmo).

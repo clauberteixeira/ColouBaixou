@@ -323,3 +323,41 @@ def test_review_checked_count(): ...
 - [ ] **Step 2:** Confirmar que `.gitignore` exclui `.venv/`, `dist/`, `build/` e `.superpowers/`. `git status` limpo e `git ls-files` sem binários grandes.
 - [ ] **Step 3:** `git remote add origin https://github.com/clauberteixeira/ColouBaixou.git` (o repositório o usuário cria pela web) e `git push -u origin main`.
 - [ ] **Step 4:** Conferir o resultado com `gh repo view clauberteixeira/ColouBaixou`.
+
+---
+
+## Adendo (pedido do usuário: qualquer computador + instalador)
+
+### Task 5b: Detecção de hardware e qualidade adaptativa
+
+**Files:** Create `src/ytdl/hardware.py`. Modify `src/ytdl/tools.py` (`Tools.hw_encoder: str | None = None` e detecção em `load_tools`), `src/ytdl/commands.py` (encoders `qsv` e `amf`), `src/ytdl/downloader.py` (ordem `[hw_encoder, "x264"]`), `src/ytdl/formats.py` (`plan_video(info, res=None, fast=False)` e `best_fast_height(info) -> int | None`) e `src/ytdl/app.py` (rótulos "(lenta neste PC)" e `fast = tools.hw_encoder is None`). Tests: `tests/test_hardware.py`, `tests/test_formats.py`, `tests/test_commands.py` e `tests/test_downloader.py`.
+
+- **`hardware.py`:**
+  - `ENCODER_ORDER = ("nvenc", "qsv", "amf")`;
+  - `probe_args(ffmpeg, enc) -> list[str]`: `-f lavfi -i color=c=black:s=640x360:r=30 -frames:v 10 -c:v h264_<enc> -f null -`;
+  - `detect_hw_encoder(ffmpeg: Path, run=run_quiet) -> str | None`: o primeiro com rc 0, com timeout de 15 s cada.
+- **ENCODERS:**
+  - `qsv`: `-c:v h264_qsv -preset medium -global_quality 20 -profile:v high`;
+  - `amf`: `-c:v h264_amf -quality quality -rc cqp -qp_i 20 -qp_p 20 -profile:v high`.
+- **`best_fast_height`:** maior `res` ≤ CAP com formato `avc1` SDR.
+- **`plan_video(fast=True)`:** o alvo é `res` ou `best_fast_height`, e se não houver, `available_heights[0]`. A chave passa a ser `(avc1, SDR, fps, https, tbr)`.
+- **Testes:**
+  - detecção (fake run: nvenc falha e qsv funciona → "qsv"; todos falham → None);
+  - `fast=True` no fixture → 137 sem transcode;
+  - `fast=True` com vp9 60 e avc1 30 em 1080 → avc1;
+  - vídeo sem avc1 → regra normal;
+  - Job usa `[hw, "x264"]` e, sem hw, só x264.
+- **Verificação real:** `detect_hw_encoder` nesta máquina → "nvenc".
+
+### Task 6 (substituída): Nome, FFmpeg leve, Deno, instalador
+
+1. Renomear para **ColouBaixô** e **ColouBaixou** (como antes).
+2. **Deno:** `tools.ensure_deno(bin_dir)` baixa `https://github.com/denoland/deno/releases/latest/download/deno-x86_64-pc-windows-msvc.zip` quando `find_node()` for None. Os args do yt-dlp passam a usar `--js-runtimes deno:<path>` quando for o caso. Teste com download fake.
+3. **FFmpeg essentials:** baixar, conferir os encoders e filtros (`h264_nvenc`, `h264_qsv`, `h264_amf`, `libx264`, `zscale`, `tonemap`) e só então usar no `build.ps1`, em `vendor\ffmpeg\`, fora do git.
+4. **`installer\ColouBaixou.iss`** (Inno Setup 6):
+   - `PrivilegesRequired=lowest`, `DefaultDirName={localappdata}\Programs\ColouBaixou`, idioma `BrazilianPortuguese`;
+   - `[Icons]` na área de trabalho e no menu Iniciar;
+   - `[Run]` "Abrir o ColouBaixô" no fim;
+   - `[UninstallDelete]` apaga só a pasta do programa (os vídeos baixados ficam).
+   - Script `scripts\make_installer.ps1`.
+5. **Verificação:** instalar pelo `Setup.exe`, abrir e baixar um vídeo, desinstalar. Simular "sem Node" e "sem aceleração" (variáveis de ambiente de teste `YTDL_NO_NODE=1` e `YTDL_NO_HW=1`, lidas por `load_tools`).
