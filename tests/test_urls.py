@@ -76,3 +76,17 @@ def test_extract_playlist_id(url, expected):
 def test_is_mix():
     assert is_mix("RDDB_DNxGnDzs")
     assert not is_mix("PL123")
+
+
+def test_extract_video_ids_with_punctuation_and_brackets():
+    text = ("olha esse: https://youtu.be/dQw4w9WgXcQ, e esse https://www.youtube.com/watch?v=9bZkp7q19f0. "
+            "(https://youtu.be/kJQP7kiw5Fk) <https://youtu.be/OPf0YbXqDm0> \"https://youtu.be/abcdefghijk\"")
+    assert extract_video_ids(text) == ["dQw4w9WgXcQ", "9bZkp7q19f0", "kJQP7kiw5Fk", "OPf0YbXqDm0", "abcdefghijk"]
+
+
+def test_extract_video_ids_link_glued_to_text():
+    assert extract_video_ids("veja:https://youtu.be/dQw4w9WgXcQ!!") == ["dQw4w9WgXcQ"]
+
+
+def test_extract_video_ids_ignores_lookalike_domains():
+    assert extract_video_ids("https://notyoutube.com/watch?v=dQw4w9WgXcQ evil-youtu.be/dQw4w9WgXcQ") == []

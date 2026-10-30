@@ -167,7 +167,7 @@ def quality_label(res: int) -> str:
 
 
 BEST = "Melhor disponível"
-SLOW = "lenta neste PC"
+SLOW = "pode demorar neste PC"
 
 
 def quality_options(info: VideoInfo, fast: bool) -> dict[str, int | None]:

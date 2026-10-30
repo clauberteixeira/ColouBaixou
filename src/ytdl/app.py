@@ -18,6 +18,7 @@ from PIL import Image
 from ytdl.config import Config, load_config, save_config
 from ytdl.downloader import Job, cleanup_stale_temp, fetch_info, fetch_oembed
 from ytdl.errors import BOT_BLOCK, INVALID_LINK, NO_NODE_WARNING, Cancelled, DownloadError, FriendlyError
+from ytdl.hardware import prefers_fast_mode
 from ytdl.formats import VideoInfo, available_heights, format_duration, plan_video, quality_label, quality_options
 from ytdl.paths import app_data_dir, resource_dir
 from ytdl.playlist import PlaylistEntry, thumb_url
@@ -191,8 +192,8 @@ class App(ctk.CTk):
 
     @property
     def fast(self) -> bool:
-        """Computador sem aceleração de vídeo: evita conversões lentas."""
-        return bool(self.tools) and self.tools.hw_encoder is None
+        """Computador mais simples: "Melhor disponível" evita conversões demoradas."""
+        return bool(self.tools) and prefers_fast_mode(self.tools.hw_encoder)
 
     def _show_folder(self) -> None:
         self.folder_label.configure(text=f"📁 Salvando em: {self.settings.base_dir}")
@@ -617,7 +618,7 @@ class App(ctk.CTk):
 
     def _on_thumb(self, payload) -> None:
         video_id, image = payload
-        self.queue_view.set_thumb(video_id, ctk.CTkImage(light_image=image, dark_image=image, size=ROW_THUMB))
+        self.queue_view.set_thumb(video_id, image)
 
     # --- pasta e configurações ----------------------------------------
 

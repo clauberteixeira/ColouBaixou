@@ -2,6 +2,7 @@
 
 import queue
 import threading
+from tkinter import ttk
 from typing import Callable, Literal
 
 import customtkinter as ctk
@@ -11,6 +12,7 @@ from ytdl.errors import DownloadError
 from ytdl.formats import format_duration
 from ytdl.playlist import MIX_LIMIT, PLAYLIST_LIMIT, Playlist, PlaylistEntry
 from ytdl.queue_model import Kind
+from ytdl.queue_view import style_tree
 from ytdl.tools import Tools
 
 POLL_MS = 100
@@ -58,7 +60,8 @@ class PlaylistWindow(ctk.CTkToplevel):
         self.minsize(520, 420)
         self.on_add, self.preselect = on_add, preselect
         self.events: queue.Queue = queue.Queue()
-        self.vars: list[tuple[PlaylistEntry, ctk.BooleanVar]] = []
+        self.entries: dict[str, PlaylistEntry] = {}
+        self.checked: dict[str, bool] = {}
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure(2, weight=1)
 
@@ -67,9 +70,22 @@ class PlaylistWindow(ctk.CTkToplevel):
         self.title_label.grid(row=0, column=0, sticky="ew", padx=16, pady=(16, 0))
         self.note = ctk.CTkLabel(self, text="", anchor="w", text_color=MUTED)
         self.note.grid(row=1, column=0, sticky="ew", padx=16)
-        self.list = ctk.CTkScrollableFrame(self)
-        self.list.grid(row=2, column=0, sticky="nsew", padx=16, pady=8)
-        self.list.grid_columnconfigure(1, weight=1)
+        frame = ctk.CTkFrame(self)
+        frame.grid(row=2, column=0, sticky="nsew", padx=16, pady=8)
+        frame.grid_columnconfigure(0, weight=1)
+        frame.grid_rowconfigure(0, weight=1)
+        self.tree = ttk.Treeview(frame, columns=("check", "title", "channel", "duration"), show="headings",
+                                 style=style_tree(30), selectmode="none")
+        for col, text, width, stretch in (("check", "", 34, False), ("title", "Título", 300, True),
+                                          ("channel", "Canal", 140, False), ("duration", "Duração", 70, False)):
+            self.tree.heading(col, text=text, anchor="w")
+            self.tree.column(col, width=width, stretch=stretch, anchor="center" if col == "check" else "w")
+        self.tree.tag_configure("unavailable", foreground="#8a8a8a")
+        self.tree.grid(row=0, column=0, sticky="nsew", padx=(4, 0), pady=4)
+        scroll = ctk.CTkScrollbar(frame, command=self.tree.yview)
+        scroll.grid(row=0, column=1, sticky="ns", pady=4)
+        self.tree.configure(yscrollcommand=scroll.set)
+        self.tree.bind("<ButtonRelease-1>", self._on_click)
 
         bottom = ctk.CTkFrame(self, fg_color="transparent")
         bottom.grid(row=3, column=0, sticky="ew", padx=16, pady=(0, 16))
@@ -119,37 +135,50 @@ class PlaylistWindow(ctk.CTkToplevel):
             self.note.configure(text=f"Mix do YouTube: mostrando os primeiros {MIX_LIMIT} vídeos.")
         elif playlist.truncated:
             self.note.configure(text=f"Mostrando os primeiros {PLAYLIST_LIMIT} vídeos.")
-        for row, entry in enumerate(playlist.entries):
-            var = ctk.BooleanVar(value=entry.available and entry.video_id == self.preselect)
-            box = ctk.CTkCheckBox(self.list, text="", width=24, variable=var, command=self._refresh,
-                                  state="normal" if entry.available else "disabled")
-            box.grid(row=row, column=0, padx=(0, 6), pady=2)
-            text = entry.title if entry.available else f"{entry.title} (indisponível)"
-            meta = f"{entry.channel} · {format_duration(entry.duration)}" if entry.available else ""
-            label = ctk.CTkLabel(self.list, text=text if not meta else f"{text}\n{meta}", anchor="w",
-                                 justify="left", text_color=None if entry.available else MUTED)
-            label.grid(row=row, column=1, sticky="ew", pady=2)
-            if entry.available:
-                label.bind("<Button-1>", lambda e, v=var: (v.set(not v.get()), self._refresh()))
-            self.vars.append((entry, var))
+        for entry in playlist.entries:
+            if entry.video_id in self.entries:  # o mesmo vídeo pode aparecer duas vezes numa playlist
+                continue
+            self.entries[entry.video_id] = entry
+            self.checked[entry.video_id] = entry.available and entry.video_id == self.preselect
+            title = entry.title if entry.available else f"{entry.title} (indisponível)"
+            duration = format_duration(entry.duration) if entry.available else ""
+            self.tree.insert("", "end", iid=entry.video_id, values=("", title, entry.channel, duration),
+                             tags=() if entry.available else ("unavailable",))
+            self._draw(entry.video_id)
         self.all_btn.configure(state="normal")
         self._refresh()
 
+    def _draw(self, video_id: str) -> None:
+        mark = ("☑" if self.checked[video_id] else "☐") if self.entries[video_id].available else ""
+        self.tree.set(video_id, "check", mark)
+
+    def set_checked(self, video_id: str, value: bool) -> None:
+        if self.entries[video_id].available:
+            self.checked[video_id] = value
+            self._draw(video_id)
+            self._refresh()
+
+    def _on_click(self, event) -> None:
+        row = self.tree.identify_row(event.y)
+        if row:
+            self.set_checked(row, not self.checked[row])
+
     def _selected(self) -> list[PlaylistEntry]:
-        return [entry for entry, var in self.vars if var.get()]
+        return [self.entries[v] for v, on in self.checked.items() if on]
 
     def _refresh(self) -> None:
         count = len(self._selected())
         self.add_btn.configure(text=f"Adicionar {count} à fila", state="normal" if count else "disabled")
-        available = [v for e, v in self.vars if e.available]
-        all_on = bool(available) and all(v.get() for v in available)
+        available = [v for v, e in self.entries.items() if e.available]
+        all_on = bool(available) and all(self.checked[v] for v in available)
         self.all_btn.configure(text="Desmarcar todos" if all_on else "Marcar todos")
 
     def _toggle_all(self) -> None:
-        available = [v for e, v in self.vars if e.available]
-        target = not all(v.get() for v in available)
-        for var in available:
-            var.set(target)
+        available = [v for v, e in self.entries.items() if e.available]
+        target = not all(self.checked[v] for v in available)
+        for video_id in available:
+            self.checked[video_id] = target
+            self._draw(video_id)
         self._refresh()
 
     def _add(self) -> None:

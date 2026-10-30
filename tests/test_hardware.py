@@ -1,7 +1,7 @@
 import subprocess
 from pathlib import Path
 
-from ytdl.hardware import ENCODER_ORDER, detect_hw_encoder, probe_args
+from ytdl.hardware import ENCODER_ORDER, detect_hw_encoder, prefers_fast_mode, probe_args
 
 FF = Path("ffmpeg.exe")
 
@@ -39,3 +39,11 @@ def test_timeout_counts_as_failure():
     def run(args, timeout=None):
         raise subprocess.TimeoutExpired(args, timeout)
     assert detect_hw_encoder(FF, run=run) is None
+
+
+def test_fast_mode_unless_nvidia():
+    # Intel/AMD costumam ser gráficos integrados de notebook: a leitura do 4K ainda pesa no processador
+    assert prefers_fast_mode("nvenc") is False
+    assert prefers_fast_mode("qsv") is True
+    assert prefers_fast_mode("amf") is True
+    assert prefers_fast_mode(None) is True

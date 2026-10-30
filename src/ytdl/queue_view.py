@@ -1,8 +1,14 @@
-"""Lista da fila na tela principal."""
+"""Lista da fila na tela principal.
 
+Usa o Treeview nativo (ttk): com componentes desenhados do CustomTkinter, 500 itens
+travavam a tela por ~40 s; com o Treeview, menos de 0,1 s.
+"""
+
+from tkinter import ttk
 from typing import Callable
 
 import customtkinter as ctk
+from PIL import Image, ImageTk
 
 from ytdl.progress import describe
 from ytdl.queue_model import EDITABLE, FINISHED, Item, Status
@@ -10,10 +16,8 @@ from ytdl.queue_model import EDITABLE, FINISHED, Item, Status
 TITLE_MAX = 60
 ROW_THUMB = (56, 32)
 KIND_LABEL = {"video": "MP4", "audio": "MP3"}
-LABEL_KIND = {v: k for k, v in KIND_LABEL.items()}
-ERROR_COLOR = ("#c5221f", "#f28b82")
-OK_COLOR = ("#188038", "#81c995")
-MUTED = ("gray35", "gray65")
+COLUMNS = ("check", "title", "channel", "kind", "status", "remove")
+STYLE = "Colou.Treeview"
 
 
 def status_text(item: Item) -> tuple[str, bool]:
@@ -38,89 +42,137 @@ def display_title(item: Item) -> str:
     return item.title if len(item.title) <= TITLE_MAX else item.title[:TITLE_MAX - 1] + "…"
 
 
-class QueueRow(ctk.CTkFrame):
-    def __init__(self, master, view: "QueueView", item: Item):
-        super().__init__(master, fg_color="transparent")
-        self.view, self.item_id, self.video_id = view, item.id, item.video_id
-        self.grid_columnconfigure(2, weight=1)
-
-        self.check_var = ctk.BooleanVar(value=item.checked)
-        self.check = ctk.CTkCheckBox(self, text="", width=24, variable=self.check_var,
-                                     command=lambda: view.on_toggle(self.item_id, self.check_var.get()))
-        self.thumb = ctk.CTkLabel(self, text="", width=ROW_THUMB[0], height=ROW_THUMB[1],
-                                  fg_color=("gray80", "gray25"), corner_radius=3)
-        self.thumb.grid(row=0, column=1, rowspan=2, padx=(0, 8), pady=4)
-        self.title = ctk.CTkLabel(self, text="", anchor="w")
-        self.title.grid(row=0, column=2, sticky="ew")
-        self.status = ctk.CTkLabel(self, text="", anchor="w", font=ctk.CTkFont(size=12))
-        self.status.grid(row=1, column=2, sticky="ew")
-        self.status.bind("<Button-1>", lambda e: view.on_open(self.item_id))
-        self.bar = ctk.CTkProgressBar(self, height=6)
-        self.kind = ctk.CTkOptionMenu(self, values=list(LABEL_KIND), width=74,
-                                      command=lambda v: view.on_kind(self.item_id, LABEL_KIND[v]))
-        self.kind.grid(row=0, column=3, rowspan=2, padx=8)
-        ctk.CTkButton(self, text="✕", width=28, height=28, fg_color="transparent",
-                      text_color=MUTED, hover_color=("gray80", "gray30"),
-                      command=lambda: view.on_remove(self.item_id)).grid(row=0, column=4, rowspan=2)
-        self.update_from(item)
-
-    def update_from(self, item: Item) -> None:
-        if item.status == Status.REVIEW:
-            self.check.grid(row=0, column=0, rowspan=2, padx=(0, 4))
-            self.check_var.set(item.checked)
-        else:
-            self.check.grid_remove()
-        self.title.configure(text=display_title(item))
-        text, error = status_text(item)
-        color = ERROR_COLOR if error else OK_COLOR if item.status == Status.DONE else MUTED
-        self.status.configure(text=text, text_color=color, cursor="hand2" if item.status == Status.DONE else "")
-        if item.status == Status.DOWNLOADING and item.progress and item.progress.percent is not None:
-            self.bar.grid(row=2, column=2, sticky="ew", pady=(0, 4))
-            self.bar.set(item.progress.percent / 100)
-        elif item.status == Status.DOWNLOADING:
-            self.bar.grid(row=2, column=2, sticky="ew", pady=(0, 4))
-        else:
-            self.bar.grid_remove()
-        self.kind.set(KIND_LABEL[item.kind])
-        self.kind.configure(state="normal" if item.status in EDITABLE else "disabled")
-        image = self.view.thumbs.get(self.video_id)
-        if image:
-            self.thumb.configure(image=image)
+def row_values(item: Item) -> tuple[str, ...]:
+    check = ("☑" if item.checked else "☐") if item.status == Status.REVIEW else ""
+    kind = KIND_LABEL[item.kind] + (" ▾" if item.status in EDITABLE else "")
+    return check, display_title(item), item.channel or "", kind, status_text(item)[0], "✕"
 
 
-class QueueView(ctk.CTkScrollableFrame):
+def row_tag(item: Item) -> str:
+    if item.status == Status.ERROR:
+        return "error"
+    if item.status == Status.DONE:
+        return "done"
+    return "muted" if item.status == Status.CANCELLED else "normal"
+
+
+def style_tree(row_height: int) -> str:
+    """Cores do Treeview seguindo o tema claro/escuro do app."""
+    dark = ctk.get_appearance_mode() == "Dark"
+    bg, fg, head, sel = ("#2b2b2b", "#e6e6e6", "#333333", "#1f6aa5") if dark else \
+        ("#ffffff", "#1a1a1a", "#e9e9e9", "#3a7ebf")
+    style = ttk.Style()
+    style.theme_use("clam")
+    style.configure(STYLE, background=bg, fieldbackground=bg, foreground=fg, rowheight=row_height,
+                    borderwidth=0, font=("Segoe UI", 10))
+    style.configure(f"{STYLE}.Heading", background=head, foreground=fg, relief="flat", font=("Segoe UI", 9, "bold"))
+    style.map(STYLE, background=[("selected", sel)], foreground=[("selected", "#ffffff")])
+    style.layout(STYLE, [("Treeview.treearea", {"sticky": "nswe"})])
+    return STYLE
+
+
+class QueueView(ctk.CTkFrame):
     def __init__(self, master, on_toggle: Callable[[int, bool], None], on_kind: Callable[[int, str], None],
                  on_remove: Callable[[int], None], on_open: Callable[[int], None]):
         super().__init__(master)
         self.on_toggle, self.on_kind, self.on_remove, self.on_open = on_toggle, on_kind, on_remove, on_open
         self.grid_columnconfigure(0, weight=1)
-        self.rows: dict[int, QueueRow] = {}
-        self.thumbs: dict[str, ctk.CTkImage] = {}
-        self.empty = ctk.CTkLabel(self, text="Nenhum item na fila. Cole um ou vários links acima.", text_color=MUTED)
+        self.grid_rowconfigure(0, weight=1)
+        self.items: dict[int, Item] = {}
+        self.thumbs: dict[str, ImageTk.PhotoImage] = {}
+
+        self.tree = ttk.Treeview(self, columns=COLUMNS, show="tree headings", style=style_tree(ROW_THUMB[1] + 8),
+                                 selectmode="browse")
+        headings = {"check": "", "title": "Título", "channel": "Canal", "kind": "Formato",
+                    "status": "Situação", "remove": ""}
+        widths = {"check": 30, "title": 250, "channel": 110, "kind": 70, "status": 200, "remove": 30}
+        self.tree.heading("#0", text="")
+        self.tree.column("#0", width=ROW_THUMB[0] + 22, stretch=False)
+        for col in COLUMNS:
+            self.tree.heading(col, text=headings[col], anchor="w")
+            stretch = col in ("title", "status")
+            anchor = "center" if col in ("check", "remove") else "w"
+            self.tree.column(col, width=widths[col], stretch=stretch, anchor=anchor, minwidth=widths[col] // 2)
+        self.tree.tag_configure("error", foreground="#e05a50")
+        self.tree.tag_configure("done", foreground="#3faa63")
+        self.tree.tag_configure("muted", foreground="#8a8a8a")
+        self.tree.grid(row=0, column=0, sticky="nsew", padx=(4, 0), pady=4)
+        scroll = ctk.CTkScrollbar(self, command=self.tree.yview)
+        scroll.grid(row=0, column=1, sticky="ns", pady=4)
+        self.tree.configure(yscrollcommand=scroll.set)
+        self.tree.bind("<ButtonRelease-1>", self._on_click)
+        self.tree.bind("<Double-1>", self._on_double)
+        self.tree.bind("<Delete>", self._on_delete_key)
+
+        self.empty = ctk.CTkLabel(self, text="Nenhum item na fila. Cole um ou vários links acima.",
+                                  text_color=("gray35", "gray65"), fg_color="transparent")
+
+    # --- desenho ---------------------------------------------------------
+
+    def _apply(self, item: Item) -> None:
+        iid = str(item.id)
+        kwargs = {"values": row_values(item), "tags": (row_tag(item),)}
+        if item.video_id in self.thumbs:
+            kwargs["image"] = self.thumbs[item.video_id]
+        if self.tree.exists(iid):
+            self.tree.item(iid, **kwargs)
+        else:
+            self.tree.insert("", "end", iid=iid, text="", **kwargs)
 
     def render(self, items: list[Item]) -> None:
-        alive = {i.id for i in items}
-        for item_id in list(self.rows):
-            if item_id not in alive:
-                self.rows.pop(item_id).destroy()
+        self.items = {i.id: i for i in items}
+        for iid in self.tree.get_children():
+            if int(iid) not in self.items:
+                self.tree.delete(iid)
         for position, item in enumerate(items):
-            row = self.rows.get(item.id)
-            if row is None:
-                row = self.rows[item.id] = QueueRow(self, self, item)
-            else:
-                row.update_from(item)
-            row.grid(row=position, column=0, sticky="ew", pady=1)
+            self._apply(item)
+            if self.tree.index(str(item.id)) != position:
+                self.tree.move(str(item.id), "", position)
         if items:
-            self.empty.grid_remove()
+            self.empty.place_forget()
         else:
-            self.empty.grid(row=0, column=0, pady=24)
+            self.empty.place(relx=0.5, rely=0.5, anchor="center")
 
     def update_item(self, item: Item) -> None:
-        if row := self.rows.get(item.id):
-            row.update_from(item)
+        self.items[item.id] = item
+        if self.tree.exists(str(item.id)):
+            self._apply(item)
 
-    def set_thumb(self, video_id: str, image: ctk.CTkImage) -> None:
-        self.thumbs[video_id] = image
-        for row in self.rows.values():
-            if row.video_id == video_id:
-                row.thumb.configure(image=image)
+    def set_thumb(self, video_id: str, image: Image.Image) -> None:
+        self.thumbs[video_id] = ImageTk.PhotoImage(image)
+        for item in self.items.values():
+            if item.video_id == video_id and self.tree.exists(str(item.id)):
+                self.tree.item(str(item.id), image=self.thumbs[video_id])
+
+    # --- cliques ---------------------------------------------------------
+
+    def _hit(self, event) -> tuple[Item | None, str]:
+        row = self.tree.identify_row(event.y)
+        column = self.tree.identify_column(event.x)  # "#0", "#1"…
+        if not row:
+            return None, ""
+        index = int(column[1:]) - 1
+        name = COLUMNS[index] if 0 <= index < len(COLUMNS) else ""
+        return self.items.get(int(row)), name
+
+    def _on_click(self, event) -> None:
+        item, column = self._hit(event)
+        if item is None:
+            return
+        if column == "check" and item.status == Status.REVIEW:
+            self.on_toggle(item.id, not item.checked)
+        elif column == "kind" and item.status in EDITABLE:
+            self.on_kind(item.id, "audio" if item.kind == "video" else "video")
+        elif column == "remove":
+            self.on_remove(item.id)
+        elif column == "status" and item.status == Status.DONE:
+            self.on_open(item.id)
+
+    def _on_double(self, event) -> None:
+        item, column = self._hit(event)
+        if item and item.status == Status.DONE and column not in ("remove", "kind", "check"):
+            self.on_open(item.id)
+
+    def _on_delete_key(self, _event) -> None:
+        for iid in self.tree.selection():
+            self.on_remove(int(iid))

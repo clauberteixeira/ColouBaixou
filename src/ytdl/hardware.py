@@ -27,3 +27,12 @@ def detect_hw_encoder(ffmpeg: Path, run=run_quiet) -> str | None:
             pass
     log.info("aceleração de vídeo: nenhuma (conversões pelo processador)")
     return None
+
+
+def prefers_fast_mode(hw_encoder: str | None) -> bool:
+    """Evitar conversões por padrão? Só a NVIDIA (placa dedicada) libera o 4K como "melhor".
+
+    Intel Quick Sync e AMD costumam ser gráficos integrados de notebook: a codificação é
+    acelerada, mas ler um 4K VP9/AV1 (e o HDR) ainda pesa no processador.
+    """
+    return hw_encoder != "nvenc"

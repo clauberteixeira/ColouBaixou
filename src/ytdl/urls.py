@@ -7,6 +7,9 @@ HOSTS = {"youtube.com", "www.youtube.com", "m.youtube.com", "music.youtube.com"}
 SHORT_HOST = "youtu.be"
 ID_RE = re.compile(r"^[A-Za-z0-9_-]{11}$")
 PATH_PREFIXES = ("shorts", "embed", "live")
+# trecho que parece link do YouTube dentro de um texto qualquer (mensagem de WhatsApp, e-mail…)
+LINK_RE = re.compile(r"(?<![\w.-])(?:https?://)?(?:[\w-]+\.)*(?:youtube\.com|youtu\.be)/[^\s<>\"'()\[\]{}]*", re.IGNORECASE)
+TRAILING = ".,;:!?"
 
 
 def _valid(candidate: str | None) -> str | None:
@@ -45,8 +48,8 @@ def extract_video_id(text: str) -> str | None:
 def extract_video_ids(text: str) -> list[str]:
     """Todos os vídeos de um texto colado, na ordem e sem repetir."""
     ids: list[str] = []
-    for piece in text.split():
-        video_id = extract_video_id(piece)
+    for match in LINK_RE.finditer(text):
+        video_id = extract_video_id(match.group(0).rstrip(TRAILING))
         if video_id and video_id not in ids:
             ids.append(video_id)
     return ids

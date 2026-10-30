@@ -151,4 +151,4 @@ def test_quality_options_with_acceleration():
 
 def test_quality_options_without_acceleration():
     opts = quality_options(parse_info(DATA), fast=True)
-    assert list(opts.items()) == [("Melhor disponível (1080p)", None), ("4K (lenta neste PC)", 2160), ("720p", 720)]
+    assert list(opts.items()) == [("Melhor disponível (1080p)", None), ("4K (pode demorar neste PC)", 2160), ("720p", 720)]

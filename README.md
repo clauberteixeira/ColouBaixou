@@ -4,9 +4,13 @@ Programa para Windows: cole o link de um vídeo do YouTube e baixe em **MP4** (a
 
 ## Instalar
 
-1. Baixe `ColouBaixou-Setup-<versão>.exe` e abra.
-2. Se aparecer **"O Windows protegeu o computador"**, clique em **Mais informações → Executar assim mesmo**. O aviso aparece porque o programa não tem assinatura digital paga.
+1. Baixe `ColouBaixou-Setup-<versão>.exe` na página de [Releases](https://github.com/clauberteixeira/ColouBaixou/releases) e abra.
+2. Se aparecer **"O Windows protegeu o computador"**, clique em **Mais informações → Executar assim mesmo**.
+   - Outra forma: botão direito no instalador → **Propriedades** → marque **Desbloquear** → OK, e depois abra normalmente.
+   - Copiado por **pendrive**, o aviso nem aparece.
 3. Avançar → Instalar → Concluir. Não pede senha de administrador.
+
+> **Por que aparece esse aviso?** O ColouBaixô é gratuito e feito para ajudar família e amigos, por isso não tem assinatura digital paga (que custa caro e precisa ser renovada todo ano). O Windows avisa sobre qualquer programa novo sem essa assinatura. Não é vírus nem defeito.
 
 Funciona no Windows 10 e 11 (64 bits). Na primeira vez que abre, o programa baixa sozinho o motor de download (yt-dlp) e, se o computador não tiver Node.js, o Deno. Por isso a primeira abertura precisa de internet.
 
