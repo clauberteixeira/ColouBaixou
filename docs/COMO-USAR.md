@@ -105,7 +105,7 @@ Se você baixar o mesmo vídeo de novo, o arquivo novo ganha um número, como `T
 
 **📁 Abrir pasta** abre a pasta do último arquivo baixado.
 
-O botão **⚙** (canto superior direito) mostra a pasta, a versão do programa e os links de ajuda.
+O botão **⚙** (canto superior direito) mostra a versão do programa, as atualizações e os links de ajuda.
 
 ![Configurações](images/configuracoes-light.png)
 

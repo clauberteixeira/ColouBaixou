@@ -1,4 +1,4 @@
-# Baixa o FFmpeg "essentials" (versão leve, do Gyan) para vendor\ffmpeg\.
+﻿# Baixa o FFmpeg "essentials" (versão leve, do Gyan) para vendor\ffmpeg\.
 # Tem tudo o que o programa usa: NVENC/QSV/AMF, libx264, zscale/tonemap e decodificador AV1.
 $ErrorActionPreference = "Stop"
 $version = "9.0.1"

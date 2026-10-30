@@ -1,16 +1,13 @@
-"""Janela de Configurações: pasta principal, atualizações e "sobre"."""
+"""Janela de Configurações: atualizações e "sobre". (A pasta fica na tela principal.)"""
 
 import queue
 import threading
 import webbrowser
-from pathlib import Path
-from tkinter import filedialog
 from typing import Callable
 
 import customtkinter as ctk
 
 from ytdl.about import APP_NAME, AUTHOR, AUTHOR_URL, GUIDE_URL, ISSUES_URL, REPO_URL, VERSION
-from ytdl.config import Config, save_config
 from ytdl.tools import Tools, ytdlp_version
 from ytdl.updater import Release
 
@@ -22,51 +19,40 @@ GRAY_HOVER = ("gray65", "gray40")
 
 
 class SettingsWindow(ctk.CTkToplevel):
-    def __init__(self, master, tools: Tools | None, config: Config, on_saved: Callable[[Config], None],
-                 release: Release | None = None, on_update: Callable[[], None] | None = None):
+    def __init__(self, master, tools: Tools | None, release: Release | None = None,
+                 on_update: Callable[[], None] | None = None):
         super().__init__(master)
         self.title("Configurações")
         self.resizable(False, False)
-        self.config_data = config
-        self.on_saved = on_saved
         self.events: queue.Queue = queue.Queue()
         self.grid_columnconfigure(0, weight=1)
         bold = ctk.CTkFont(weight="bold")
 
-        # pasta
-        ctk.CTkLabel(self, text="Pasta onde salvar", font=bold, anchor="w").grid(
-            row=0, column=0, columnspan=2, sticky="ew", padx=16, pady=(16, 4))
-        self.folder_entry = ctk.CTkEntry(self, width=380)
-        self.folder_entry.grid(row=1, column=0, sticky="ew", padx=(16, 8))
-        self._show_folder()
-        ctk.CTkButton(self, text="📂 Escolher pasta", width=150, command=self._choose).grid(
-            row=1, column=1, padx=(0, 16))
-
         # atualizações
         ctk.CTkLabel(self, text="Atualizações", font=bold, anchor="w").grid(
-            row=2, column=0, columnspan=2, sticky="ew", padx=16, pady=(20, 4))
+            row=0, column=0, columnspan=2, sticky="ew", padx=16, pady=(16, 4))
         if release:
             text, color = f"Programa: versão {VERSION} · nova versão {release.version} disponível", None
         else:
             text, color = f"Programa: versão {VERSION} · ✔ você está na versão mais recente", OK_COLOR
-        ctk.CTkLabel(self, text=text, anchor="w", text_color=color).grid(row=3, column=0, sticky="ew", padx=16)
+        ctk.CTkLabel(self, text=text, anchor="w", text_color=color).grid(row=1, column=0, sticky="ew", padx=16)
         if release and on_update:
             ctk.CTkButton(self, text="Atualizar agora", width=150,
-                          command=lambda: (self.destroy(), on_update())).grid(row=3, column=1, padx=(0, 16))
+                          command=lambda: (self.destroy(), on_update())).grid(row=1, column=1, padx=(0, 16))
         self.engine_label = ctk.CTkLabel(self, text="Motor de download: …", anchor="w", text_color=MUTED)
-        self.engine_label.grid(row=4, column=0, columnspan=2, sticky="ew", padx=16, pady=(2, 0))
+        self.engine_label.grid(row=2, column=0, columnspan=2, sticky="ew", padx=16, pady=(2, 0))
 
         # sobre
         ctk.CTkLabel(self, text="Sobre", font=bold, anchor="w").grid(
-            row=5, column=0, columnspan=2, sticky="ew", padx=16, pady=(20, 4))
+            row=3, column=0, columnspan=2, sticky="ew", padx=16, pady=(20, 4))
         about = ctk.CTkFrame(self, fg_color="transparent")
-        about.grid(row=6, column=0, columnspan=2, sticky="ew", padx=16)
+        about.grid(row=4, column=0, columnspan=2, sticky="ew", padx=16)
         ctk.CTkLabel(about, text=f"{APP_NAME} {VERSION} · Desenvolvido por ", anchor="w").grid(row=0, column=0)
         author = ctk.CTkLabel(about, text=AUTHOR, anchor="w", cursor="hand2", text_color=("#1a73e8", "#8ab4f8"))
         author.grid(row=0, column=1)
         author.bind("<Button-1>", lambda e: webbrowser.open(AUTHOR_URL))
         links = ctk.CTkFrame(self, fg_color="transparent")
-        links.grid(row=7, column=0, columnspan=2, sticky="w", padx=16, pady=(8, 16))
+        links.grid(row=5, column=0, columnspan=2, sticky="w", padx=16, pady=(8, 16))
         for column, (text, url) in enumerate((("Página do projeto", REPO_URL), ("Como usar", GUIDE_URL),
                                                ("Relatar um problema", ISSUES_URL))):
             ctk.CTkButton(links, text=text, width=150, fg_color=GRAY, text_color=("gray10", "gray90"),
@@ -85,22 +71,6 @@ class SettingsWindow(ctk.CTkToplevel):
         x = master.winfo_rootx() + (master.winfo_width() - self.winfo_width()) // 2
         y = master.winfo_rooty() + (master.winfo_height() - self.winfo_height()) // 2
         self.geometry(f"+{max(x, 0)}+{max(y, 0)}")
-
-    def _show_folder(self) -> None:
-        self.folder_entry.configure(state="normal")
-        self.folder_entry.delete(0, "end")
-        self.folder_entry.insert(0, str(self.config_data.base_dir))
-        self.folder_entry.configure(state="readonly")
-
-    def _choose(self) -> None:
-        chosen = filedialog.askdirectory(parent=self, initialdir=self.config_data.base_dir,
-                                         title="Escolha a pasta onde salvar")
-        if not chosen:
-            return
-        self.config_data = Config(base_dir=Path(chosen))
-        save_config(self.config_data)
-        self._show_folder()
-        self.on_saved(self.config_data)
 
     def _poll(self) -> None:
         if not self.winfo_exists():

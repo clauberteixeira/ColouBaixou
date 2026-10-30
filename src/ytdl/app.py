@@ -730,8 +730,7 @@ class App(ctk.CTk):
         if self._settings_window and self._settings_window.winfo_exists():
             self._settings_window.focus()
             return
-        self._settings_window = SettingsWindow(self, self.tools, self.settings, self._on_settings_saved,
-                                               release=self.release, on_update=self.start_update)
+        self._settings_window = SettingsWindow(self, self.tools, release=self.release, on_update=self.start_update)
 
     def _on_settings_saved(self, config: Config) -> None:
         self.settings = config
