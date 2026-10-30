@@ -37,3 +37,7 @@ def test_ffmpeg_progress():
     assert parse_ffmpeg_line("progress=continue", 60) is None
     assert parse_ffmpeg_line("out_time_us=99000000", 60) == 100.0
     assert parse_ffmpeg_line("out_time_us=5000000", 0) is None
+
+
+def test_ffmpeg_negative_start_time_is_zero():
+    assert parse_ffmpeg_line("out_time_us=-33333", 60) == 0.0

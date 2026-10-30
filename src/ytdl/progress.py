@@ -80,4 +80,5 @@ def parse_ffmpeg_line(line: str, duration_s: int) -> float | None:
     micros = _num(value)
     if micros is None:
         return None
-    return min(micros / 1_000_000 / duration_s * 100, 100.0)
+    # o ffmpeg emite tempos negativos no início
+    return max(0.0, min(micros / 1_000_000 / duration_s * 100, 100.0))
