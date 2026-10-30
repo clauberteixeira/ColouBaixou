@@ -141,6 +141,21 @@ def test_existing_file_gets_counter(tmp_path):
     assert existing.read_bytes() == b"old"
 
 
+def test_failed_move_to_other_drive_leaves_no_partial_file(tmp_path, monkeypatch):
+    def broken_move(src, dst):
+        Path(dst).write_bytes(b"partial")  # cópia entre discos interrompida
+        raise OSError(28, "No space left on device")
+
+    monkeypatch.setattr("ytdl.downloader.shutil.move", broken_move)
+    base = tmp_path / "base"
+    job, _, _, _ = make_job(tmp_path, [([], 0, "media.mp3")])
+    with pytest.raises(DownloadError) as exc:
+        job.run_audio(URL, INFO, base)
+    assert exc.value.friendly == NO_SPACE
+    assert not any(p.is_file() for p in base.rglob("*"))
+    assert tmp_empty(tmp_path)
+
+
 def test_cleanup_stale_temp(tmp_path):
     (tmp_path / "abc").mkdir()
     (tmp_path / "abc" / "x.part").write_bytes(b"x")

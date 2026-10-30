@@ -2,6 +2,7 @@
 
 import json
 import logging
+import os
 import shutil
 import subprocess
 import threading
@@ -183,6 +184,15 @@ class Job:
 
     def _deliver(self, src: Path, base_dir: Path, kind, info: VideoInfo) -> Path:
         dest = destination_path(base_dir, kind, info.channel, info.title)
-        shutil.move(str(src), str(dest))
+        # Entre discos diferentes o move vira cópia; copia para .part e só renomeia no fim,
+        # para nunca deixar um arquivo pela metade com o nome final.
+        part = dest.with_name(dest.name + ".part")
+        try:
+            shutil.move(str(src), str(part))
+            os.replace(part, dest)
+        except OSError as exc:
+            part.unlink(missing_ok=True)
+            log.error("falha ao mover para %s: %s", dest, exc)
+            raise DownloadError(friendly_error(str(exc))) from exc
         log.info("salvo em %s", dest)
         return dest

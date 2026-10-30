@@ -147,12 +147,13 @@ class App(ctk.CTk):
 
     def _poll(self) -> None:
         try:
-            while True:
-                kind, payload = self.events.get_nowait()
-                getattr(self, f"_on_{kind}")(payload)
-        except queue.Empty:
-            pass
-        self.after(POLL_MS, self._poll)
+            drain_events(self.events, lambda kind, payload: getattr(self, f"_on_{kind}")(payload))
+        finally:
+            self.after(POLL_MS, self._poll)
+
+    def report_callback_exception(self, exc, val, tb) -> None:
+        # no .exe (--windowed) não há stderr: registra no log em vez de sumir
+        log.error("erro na interface", exc_info=(exc, val, tb))
 
     # --- componentes --------------------------------------------------
 
@@ -402,6 +403,19 @@ class App(ctk.CTk):
             if self.worker:
                 self.worker.join(timeout=5)
         self.destroy()
+
+
+def drain_events(q: queue.Queue, handle) -> None:
+    """Processa todos os eventos pendentes; um handler com erro não derruba os demais."""
+    while True:
+        try:
+            kind, payload = q.get_nowait()
+        except queue.Empty:
+            return
+        try:
+            handle(kind, payload)
+        except Exception:
+            log.exception("erro ao tratar o evento %s", kind)
 
 
 def _download_thumbnail(url: str | None) -> Image.Image | None:

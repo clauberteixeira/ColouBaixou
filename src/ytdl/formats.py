@@ -20,6 +20,7 @@ class Fmt:
     abr: float
     protocol: str
     size: int | None
+    lang_pref: int = 0  # yt-dlp: 10 = áudio original, -1 = dublado
 
 
 @dataclass(frozen=True)
@@ -61,6 +62,7 @@ def _fmt(d: dict) -> Fmt:
         abr=float(d.get("abr") or 0),
         protocol=d.get("protocol") or "",
         size=d.get("filesize") or d.get("filesize_approx"),
+        lang_pref=int(d.get("language_preference") or 0),
     )
 
 
@@ -116,7 +118,7 @@ def plan_video(info: VideoInfo, res: int | None = None) -> VideoPlan:
 
     pool = _audio_pool(info)
     m4a = [f for f in pool if f.acodec.startswith("mp4a")]
-    audio = max(m4a or pool, key=lambda f: f.abr)
+    audio = max(m4a or pool, key=_audio_key)
 
     return VideoPlan(
         video=video,
@@ -135,8 +137,13 @@ def _audio_pool(info: VideoInfo) -> tuple[Fmt, ...]:
     return normal or info.audio_formats
 
 
+def _audio_key(f: Fmt):
+    """Idioma original antes de bitrate: o -f explícito ignora a preferência do yt-dlp."""
+    return (f.lang_pref, f.abr)
+
+
 def best_audio(info: VideoInfo) -> Fmt:
-    return max(_audio_pool(info), key=lambda f: f.abr)
+    return max(_audio_pool(info), key=_audio_key)
 
 
 def quality_label(res: int) -> str:

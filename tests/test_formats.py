@@ -97,6 +97,21 @@ def test_drc_audio_is_avoided():
     assert best_audio(i).format_id == "251"
 
 
+def test_original_language_beats_dubbed_tracks():
+    # Caso real (vídeo com dublagens): a faixa italiana dublada tem abr maior que a original.
+    audio = [
+        {"format_id": "140-7", "acodec": "mp4a.40.2", "abr": 129.473, "language_preference": -1},
+        {"format_id": "140-20", "acodec": "mp4a.40.2", "abr": 129.474, "language_preference": 10},
+        {"format_id": "251-19", "acodec": "opus", "abr": 137.652, "language_preference": -1},
+        {"format_id": "251-20", "acodec": "opus", "abr": 127.968, "language_preference": 10},
+    ]
+    formats = [f for f in DATA["formats"] if f["vcodec"] != "none"]
+    formats += [dict(a, vcodec="none", ext="m4a", protocol="https") for a in audio]
+    i = parse_info(dict(DATA, formats=formats))
+    assert plan_video(i, 1080).audio.format_id == "140-20"
+    assert best_audio(i).format_id == "140-20"  # maior abr entre as originais; antes vinha 251-19 (italiano)
+
+
 def test_best_audio_for_mp3_is_highest_abr():
     assert best_audio(parse_info(DATA)).format_id == "251"
 
