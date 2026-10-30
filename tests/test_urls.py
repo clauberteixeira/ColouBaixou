@@ -1,6 +1,6 @@
 import pytest
 
-from ytdl.urls import canonical_url, extract_video_id, should_autofill
+from ytdl.urls import canonical_url, extract_playlist_id, extract_video_id, extract_video_ids, is_mix, should_autofill
 
 ID = "dQw4w9WgXcQ"
 
@@ -49,3 +49,30 @@ def test_no_autofill_while_busy():
 
 def test_no_autofill_non_youtube():
     assert not should_autofill("olá", "", busy=False)
+
+
+def test_extract_video_ids_mixed_text():
+    text = (f"olha esses:\nhttps://youtu.be/{ID}\nhttps://www.youtube.com/watch?v=abcdefghijk&list=PL1 "
+            f"https://vimeo.com/1  https://youtu.be/{ID}?si=x\nyoutube.com/shorts/ZZZZZZZZZZZ")
+    assert extract_video_ids(text) == [ID, "abcdefghijk", "ZZZZZZZZZZZ"]
+
+
+def test_extract_video_ids_none():
+    assert extract_video_ids("nada aqui") == []
+
+
+@pytest.mark.parametrize("url,expected", [
+    ("https://www.youtube.com/watch?v=N2boHnDVzqY&list=RDDB_DNxGnDzs&index=2", "RDDB_DNxGnDzs"),
+    ("https://www.youtube.com/playlist?list=PLRqwX-V7Uu6ZiZxtDDRCi6uhfTH4FilpH", "PLRqwX-V7Uu6ZiZxtDDRCi6uhfTH4FilpH"),
+    ("https://youtu.be/dQw4w9WgXcQ?list=PL123", "PL123"),
+    ("https://www.youtube.com/watch?v=dQw4w9WgXcQ", None),
+    ("https://evil.com/playlist?list=PL123", None),
+    ("", None),
+])
+def test_extract_playlist_id(url, expected):
+    assert extract_playlist_id(url) == expected
+
+
+def test_is_mix():
+    assert is_mix("RDDB_DNxGnDzs")
+    assert not is_mix("PL123")
