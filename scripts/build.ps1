@@ -1,4 +1,4 @@
-# Gera dist\ColouBaixou\ com o FFmpeg leve embutido.
+﻿# Gera dist\ColouBaixou\ com o FFmpeg leve embutido.
 $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent $PSScriptRoot
 Set-Location $root

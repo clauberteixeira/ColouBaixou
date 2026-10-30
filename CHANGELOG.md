@@ -1,5 +1,9 @@
 # Novidades
 
+## 1.0.2 (29/10/2026)
+
+- A escolha da pasta fica só na tela principal (botão **📂 Escolher pasta**); as Configurações mostram atualizações e informações do programa.
+
 ## 1.0.1 (29/10/2026)
 
 - A janela agora abre **centralizada na tela** (e se ajusta em telas pequenas de notebook).

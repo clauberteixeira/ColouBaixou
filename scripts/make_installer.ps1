@@ -1,4 +1,4 @@
-# Gera o programa e o instalador: dist\installer\ColouBaixou-Setup-<versão>.exe
+﻿# Gera o programa e o instalador: dist\installer\ColouBaixou-Setup-<versão>.exe
 $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent $PSScriptRoot
 & (Join-Path $PSScriptRoot "build.ps1")

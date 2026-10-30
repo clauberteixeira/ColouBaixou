@@ -1,4 +1,4 @@
-# Publica uma versão nova no GitHub. Os programas instalados passam a avisar e se atualizar sozinhos.
+﻿# Publica uma versão nova no GitHub. Os programas instalados passam a avisar e se atualizar sozinhos.
 # Uso: powershell -ExecutionPolicy Bypass -File scripts\publish_release.ps1 1.1.0
 # Antes: atualize __version__ em src\ytdl\__init__.py, o CHANGELOG.md e crie docs\release-notes\v<versão>.md.
 param([Parameter(Mandatory = $true)][string]$Version)
