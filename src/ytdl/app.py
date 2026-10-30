@@ -19,7 +19,7 @@ from ytdl.config import Config, load_config, save_config
 from ytdl.downloader import Job, cleanup_stale_temp, fetch_info, fetch_oembed
 from ytdl.errors import BOT_BLOCK, INVALID_LINK, NO_NODE_WARNING, Cancelled, DownloadError, FriendlyError
 from ytdl.formats import VideoInfo, available_heights, format_duration, plan_video, quality_label, quality_options
-from ytdl.paths import app_data_dir
+from ytdl.paths import app_data_dir, resource_dir
 from ytdl.playlist import PlaylistEntry, thumb_url
 from ytdl.playlist_window import PlaylistWindow, ask_playlist
 from ytdl.queue_model import Kind, QueueModel, Status
@@ -50,6 +50,9 @@ class App(ctk.CTk):
     def __init__(self):
         super().__init__()
         self.title(APP_TITLE)
+        icon = resource_dir() / "assets" / "icon.ico"
+        if icon.exists():
+            self.after(250, lambda: self.iconbitmap(str(icon)))  # o CTk troca o ícone ao abrir
         self.geometry("760x660")
         self.minsize(640, 540)
 

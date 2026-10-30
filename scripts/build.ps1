@@ -1,21 +1,28 @@
-# Gera dist\YouTube Downloader\ com o ffmpeg embutido.
+# Gera dist\ColouBaixou\ com o FFmpeg leve embutido.
 $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent $PSScriptRoot
 Set-Location $root
 
 # Com o programa aberto o PyInstaller apaga parte de dist\ e depois falha, deixando o programa quebrado.
-if (Get-Process "YouTube Downloader" -ErrorAction SilentlyContinue) {
-    throw "Feche o YouTube Downloader antes de gerar o programa."
+if (Get-Process "ColouBaixou", "YouTube Downloader" -ErrorAction SilentlyContinue) {
+    throw "Feche o ColouBaixô antes de gerar o programa."
 }
 
-$ffmpeg = (Get-Command ffmpeg -ErrorAction Stop).Source
-$ffprobe = (Get-Command ffprobe -ErrorAction Stop).Source
-Write-Host "FFmpeg: $ffmpeg"
+$ffmpegDir = Join-Path $root "vendor\ffmpeg"
+if (-not (Test-Path (Join-Path $ffmpegDir "ffmpeg.exe"))) {
+    & (Join-Path $PSScriptRoot "get_ffmpeg.ps1")
+}
+$ffmpeg = Join-Path $ffmpegDir "ffmpeg.exe"
+$ffprobe = Join-Path $ffmpegDir "ffprobe.exe"
 
-& "$root\.venv\Scripts\pyinstaller.exe" --noconfirm --windowed --name "YouTube Downloader" `
+$icon = Join-Path $root "assets\icon.ico"
+if (-not (Test-Path $icon)) { & "$root\.venv\Scripts\python.exe" scripts\make_icon.py }
+
+& "$root\.venv\Scripts\pyinstaller.exe" --noconfirm --windowed --name "ColouBaixou" --icon $icon `
     --paths src --collect-data customtkinter `
     --add-binary "$ffmpeg;ffmpeg" --add-binary "$ffprobe;ffmpeg" `
+    --add-data "$icon;assets" `
     run_app.py
 if ($LASTEXITCODE -ne 0) { throw "PyInstaller falhou ($LASTEXITCODE)" }
 
-Write-Host "Pronto: $root\dist\YouTube Downloader\YouTube Downloader.exe"
+Write-Host "Pronto: $root\dist\ColouBaixou\ColouBaixou.exe"
