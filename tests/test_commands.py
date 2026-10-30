@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from ytdl.commands import audio_args, base_args, ffmpeg_args, info_args, video_args
+from ytdl.commands import audio_args, base_args, ffmpeg_args, info_args, playlist_args, video_args
 from ytdl.formats import Fmt, VideoPlan
 from ytdl.progress import PROGRESS_TEMPLATE
 from ytdl.tools import Tools
@@ -118,3 +118,20 @@ def test_ffmpeg_aac_when_audio_transcode():
 def test_ffmpeg_ends_with_faststart_and_dst():
     a = ffmpeg_args(Path("ffmpeg.exe"), SRC, DST, plan(tv=True), "x264")
     assert a[-3:] == ["-movflags", "+faststart", str(DST)]
+
+
+def test_ffmpeg_qsv_and_amf_encoders():
+    q = ffmpeg_args(Path("ffmpeg.exe"), SRC, DST, plan(tv=True), "qsv")
+    assert pair(q, "-c:v") == "h264_qsv"
+    m = ffmpeg_args(Path("ffmpeg.exe"), SRC, DST, plan(tv=True), "amf")
+    assert pair(m, "-c:v") == "h264_amf"
+
+
+def test_base_uses_deno_when_no_node():
+    a = base_args(Tools(Path("y.exe"), Path("ff"), None, deno=Path("deno.exe")))
+    assert pair(a, "--js-runtimes") == "deno:deno.exe"
+
+
+def test_playlist_args_use_deno_too():
+    a = playlist_args(Tools(Path("y.exe"), Path("ff"), None, deno=Path("deno.exe")), "U", 50)
+    assert pair(a, "--js-runtimes") == "deno:deno.exe"

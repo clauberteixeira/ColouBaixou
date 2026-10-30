@@ -15,6 +15,9 @@ TONEMAP = (
 ENCODERS = {
     # p4: medido ~1,7x mais rápido que p5 no 4K60, mesmo tamanho, SSIM 0,996
     "nvenc": ["-c:v", "h264_nvenc", "-preset", "p4", "-rc", "vbr", "-cq", "19", "-b:v", "0", "-profile:v", "high"],
+    "qsv": ["-c:v", "h264_qsv", "-preset", "medium", "-global_quality", "20", "-profile:v", "high"],
+    "amf": ["-c:v", "h264_amf", "-quality", "quality", "-rc", "cqp", "-qp_i", "20", "-qp_p", "20",
+            "-profile:v", "high"],
     "x264": ["-c:v", "libx264", "-preset", "medium", "-crf", "18", "-profile:v", "high"],
 }
 
@@ -27,9 +30,18 @@ def base_args(t: Tools) -> list[str]:
         # baixa em 8 partes paralelas (medido: ~2,2x mais rápido, mesmo arquivo)
         "-N", "8", "--extractor-args", "youtube:formats=dashy",
     ]
-    if t.node:
-        args += ["--js-runtimes", f"node:{t.node}"]
+    if t.js_runtime:
+        args += ["--js-runtimes", t.js_runtime]
     return args
+
+
+def playlist_args(t: Tools, url: str, limit: int) -> list[str]:
+    # sem base_args: ele tem --no-playlist
+    args = [str(t.ytdlp), "--yes-playlist", "--flat-playlist", "-J",
+            "--playlist-end", str(limit), "--encoding", "utf-8"]
+    if t.js_runtime:
+        args += ["--js-runtimes", t.js_runtime]
+    return args + [url]
 
 
 def info_args(t: Tools, url: str) -> list[str]:
@@ -65,7 +77,8 @@ def _filters(plan: VideoPlan) -> str:
     return ",".join(chain)
 
 
-def ffmpeg_args(ffmpeg: Path, src: Path, dst: Path, plan: VideoPlan, encoder: Literal["nvenc", "x264"]) -> list[str]:
+def ffmpeg_args(ffmpeg: Path, src: Path, dst: Path, plan: VideoPlan,
+                encoder: Literal["nvenc", "qsv", "amf", "x264"]) -> list[str]:
     args = [str(ffmpeg), "-y", "-hide_banner", "-nostats", "-progress", "pipe:1",
             "-i", str(src), "-map", "0:v:0", "-map", "0:a:0"]
     if plan.transcode_video:

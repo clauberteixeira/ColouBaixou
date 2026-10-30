@@ -6,16 +6,19 @@ import os
 import shutil
 import subprocess
 import threading
+import urllib.error
+import urllib.request
 import uuid
 from collections import deque
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Callable, Iterator
 
-from ytdl.commands import audio_args, ffmpeg_args, info_args, video_args
+from ytdl.commands import audio_args, ffmpeg_args, info_args, playlist_args, video_args
 from ytdl.errors import NO_SPACE, Cancelled, DownloadError, error_for_live, friendly_error
 from ytdl.formats import VideoInfo, VideoPlan, available_heights, best_audio, parse_info
 from ytdl.paths import destination_path
+from ytdl.playlist import Playlist, parse_playlist, playlist_limit
 from ytdl.progress import DownloadTracker, Progress, parse_dl_line, parse_ffmpeg_line
 from ytdl.tools import NO_WINDOW, Tools, run_quiet
 
@@ -62,6 +65,37 @@ def fetch_info(t: Tools, url: str, run=run_quiet) -> VideoInfo:
     if not available_heights(info) or not info.audio_formats:
         raise DownloadError(friendly_error(""))
     return info
+
+
+OEMBED_URL = "https://www.youtube.com/oembed?format=json&url=https://www.youtube.com/watch?v={}"
+
+
+def fetch_oembed(video_id: str, opener=urllib.request.urlopen) -> tuple[str, str] | None:
+    """Título e canal pela consulta leve do YouTube (não conta como extração do yt-dlp).
+
+    None quando não dá para saber por aqui (vídeo com incorporação bloqueada, sem rede…).
+    """
+    try:
+        with opener(OEMBED_URL.format(video_id), timeout=15) as resp:
+            data = json.loads(resp.read())
+        return data["title"], data.get("author_name") or "Desconhecido"
+    except urllib.error.HTTPError as exc:
+        if exc.code in (400, 404):
+            raise DownloadError(friendly_error("video unavailable")) from exc
+        return None
+    except (OSError, ValueError, KeyError):
+        return None
+
+
+def fetch_playlist(t: Tools, url: str, playlist_id: str, run=run_quiet) -> Playlist:
+    limit = playlist_limit(playlist_id)
+    args = playlist_args(t, url, limit)
+    log.info("playlist: %s", args)
+    result = run(args, timeout=300)
+    if result.returncode != 0:
+        log.error("playlist falhou: %s", result.stderr[-4000:])
+        raise DownloadError(friendly_error(result.stderr))
+    return parse_playlist(json.loads(result.stdout), limit)
 
 
 def cleanup_stale_temp(tmp_root: Path) -> None:
@@ -170,7 +204,8 @@ class Job:
                 self.on_progress(Progress("convert", pct, None, None, None))
 
         output = ""
-        for encoder in ("nvenc", "x264"):
+        encoders = [self.tools.hw_encoder] if self.tools.hw_encoder else []
+        for encoder in encoders + ["x264"]:
             self.on_progress(Progress("convert", 0.0, None, None, None))
             rc, output = self._run(ffmpeg_args(ffmpeg, src, dst, plan, encoder), on_line)
             if rc == 0:

@@ -22,9 +22,12 @@ class Cancelled(Exception):
 INVALID_LINK = FriendlyError("Este não parece ser um link de vídeo do YouTube.")
 NO_SPACE = FriendlyError("Não há espaço suficiente no disco.")
 NO_NODE_WARNING = (
-    "Node.js não encontrado: vídeos acima de 1080p podem não aparecer. "
-    "Instale o Node.js para liberar todas as qualidades."
+    "Não foi possível preparar um componente (Deno): vídeos acima de 1080p podem não aparecer. "
+    "Verifique a internet e abra o programa de novo."
 )
+
+BOT_BLOCK = FriendlyError(
+    "O YouTube bloqueou temporariamente o download. Tente mais tarde ou atualize o programa.", True)
 
 # Ordem importa: a primeira regra que bater vence.
 RULES: list[tuple[tuple[str, ...], FriendlyError]] = [
@@ -40,8 +43,7 @@ RULES: list[tuple[tuple[str, ...], FriendlyError]] = [
      FriendlyError("Este vídeo está indisponível ou foi removido.")),
     (("no space left", "errno 28", "winerror 112"),
      NO_SPACE),
-    (("not a bot",),
-     FriendlyError("O YouTube bloqueou temporariamente o download. Tente mais tarde ou atualize o programa.", True)),
+    (("not a bot",), BOT_BLOCK),
 ]
 GENERIC = FriendlyError("Não foi possível baixar este vídeo. Tente atualizar o programa.", True)
 

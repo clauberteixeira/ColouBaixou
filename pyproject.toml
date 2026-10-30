@@ -1,7 +1,7 @@
 [project]
-name = "ytdl"
+name = "coloubaixou"
 version = "0.1.0"
-description = "YouTube Downloader (MP4 até 4K / MP3 320 kbps)"
+description = "ColouBaixô: vídeos (MP4 até 4K) e áudios (MP3 320 kbps) do YouTube"
 requires-python = ">=3.12"
 
 [tool.pytest.ini_options]

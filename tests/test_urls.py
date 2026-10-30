@@ -1,6 +1,6 @@
 import pytest
 
-from ytdl.urls import canonical_url, extract_video_id, should_autofill
+from ytdl.urls import canonical_url, extract_playlist_id, extract_video_id, extract_video_ids, is_mix, should_autofill
 
 ID = "dQw4w9WgXcQ"
 
@@ -49,3 +49,44 @@ def test_no_autofill_while_busy():
 
 def test_no_autofill_non_youtube():
     assert not should_autofill("olá", "", busy=False)
+
+
+def test_extract_video_ids_mixed_text():
+    text = (f"olha esses:\nhttps://youtu.be/{ID}\nhttps://www.youtube.com/watch?v=abcdefghijk&list=PL1 "
+            f"https://vimeo.com/1  https://youtu.be/{ID}?si=x\nyoutube.com/shorts/ZZZZZZZZZZZ")
+    assert extract_video_ids(text) == [ID, "abcdefghijk", "ZZZZZZZZZZZ"]
+
+
+def test_extract_video_ids_none():
+    assert extract_video_ids("nada aqui") == []
+
+
+@pytest.mark.parametrize("url,expected", [
+    ("https://www.youtube.com/watch?v=N2boHnDVzqY&list=RDDB_DNxGnDzs&index=2", "RDDB_DNxGnDzs"),
+    ("https://www.youtube.com/playlist?list=PLRqwX-V7Uu6ZiZxtDDRCi6uhfTH4FilpH", "PLRqwX-V7Uu6ZiZxtDDRCi6uhfTH4FilpH"),
+    ("https://youtu.be/dQw4w9WgXcQ?list=PL123", "PL123"),
+    ("https://www.youtube.com/watch?v=dQw4w9WgXcQ", None),
+    ("https://evil.com/playlist?list=PL123", None),
+    ("", None),
+])
+def test_extract_playlist_id(url, expected):
+    assert extract_playlist_id(url) == expected
+
+
+def test_is_mix():
+    assert is_mix("RDDB_DNxGnDzs")
+    assert not is_mix("PL123")
+
+
+def test_extract_video_ids_with_punctuation_and_brackets():
+    text = ("olha esse: https://youtu.be/dQw4w9WgXcQ, e esse https://www.youtube.com/watch?v=9bZkp7q19f0. "
+            "(https://youtu.be/kJQP7kiw5Fk) <https://youtu.be/OPf0YbXqDm0> \"https://youtu.be/abcdefghijk\"")
+    assert extract_video_ids(text) == ["dQw4w9WgXcQ", "9bZkp7q19f0", "kJQP7kiw5Fk", "OPf0YbXqDm0", "abcdefghijk"]
+
+
+def test_extract_video_ids_link_glued_to_text():
+    assert extract_video_ids("veja:https://youtu.be/dQw4w9WgXcQ!!") == ["dQw4w9WgXcQ"]
+
+
+def test_extract_video_ids_ignores_lookalike_domains():
+    assert extract_video_ids("https://notyoutube.com/watch?v=dQw4w9WgXcQ evil-youtu.be/dQw4w9WgXcQ") == []
