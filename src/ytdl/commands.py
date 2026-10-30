@@ -30,8 +30,8 @@ def base_args(t: Tools) -> list[str]:
         # baixa em 8 partes paralelas (medido: ~2,2x mais rápido, mesmo arquivo)
         "-N", "8", "--extractor-args", "youtube:formats=dashy",
     ]
-    if t.node:
-        args += ["--js-runtimes", f"node:{t.node}"]
+    if t.js_runtime:
+        args += ["--js-runtimes", t.js_runtime]
     return args
 
 
@@ -39,8 +39,8 @@ def playlist_args(t: Tools, url: str, limit: int) -> list[str]:
     # sem base_args: ele tem --no-playlist
     args = [str(t.ytdlp), "--yes-playlist", "--flat-playlist", "-J",
             "--playlist-end", str(limit), "--encoding", "utf-8"]
-    if t.node:
-        args += ["--js-runtimes", f"node:{t.node}"]
+    if t.js_runtime:
+        args += ["--js-runtimes", t.js_runtime]
     return args + [url]
 
 

@@ -219,7 +219,7 @@ class App(ctk.CTk):
 
     def _on_tools_ready(self, tools: Tools) -> None:
         self.tools = tools
-        self._status(NO_NODE_WARNING if tools.node is None else "")
+        self._status("" if tools.js_runtime else NO_NODE_WARNING)
         self._background(self._silent_update)
         self._background(self._detail_worker)
         self._autofill()
@@ -376,7 +376,7 @@ class App(ctk.CTk):
             self.thumb_label.configure(image=None)
         self.preview.grid()
         self._set_buttons(True)
-        self._status("" if self.tools.node else NO_NODE_WARNING)
+        self._status("" if self.tools.js_runtime else NO_NODE_WARNING)
 
     def _on_preview_failed(self, payload) -> None:
         token, friendly = payload

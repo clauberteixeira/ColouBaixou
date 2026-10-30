@@ -22,8 +22,8 @@ class Cancelled(Exception):
 INVALID_LINK = FriendlyError("Este não parece ser um link de vídeo do YouTube.")
 NO_SPACE = FriendlyError("Não há espaço suficiente no disco.")
 NO_NODE_WARNING = (
-    "Node.js não encontrado: vídeos acima de 1080p podem não aparecer. "
-    "Instale o Node.js para liberar todas as qualidades."
+    "Não foi possível preparar um componente (Deno): vídeos acima de 1080p podem não aparecer. "
+    "Verifique a internet e abra o programa de novo."
 )
 
 BOT_BLOCK = FriendlyError(
