@@ -20,7 +20,7 @@ from ytdl.about import APP_NAME, AUTHOR, AUTHOR_URL, REPO_URL, VERSION
 from ytdl.config import Config, load_config, save_config
 from ytdl.downloader import Job, cleanup_stale_temp, fetch_info, fetch_oembed
 from ytdl.errors import BOT_BLOCK, INVALID_LINK, NO_NODE_WARNING, Cancelled, DownloadError, FriendlyError
-from ytdl.hardware import prefers_fast_mode
+from ytdl.hardware import max_parallel, prefers_fast_mode
 from ytdl.history import DownloadHistory, already_downloaded
 from ytdl.formats import VideoInfo, available_heights, format_duration, plan_video, quality_label, quality_options
 from ytdl.paths import app_data_dir, resource_dir
@@ -72,10 +72,8 @@ class App(ctk.CTk):
         self.model = QueueModel()
         self.history = DownloadHistory()
         self.default_kind: Kind = "video"
-        self.job: Job | None = None
-        self.job_item: int | None = None
+        self.jobs: dict[int, tuple[Job, threading.Thread]] = {}  # item_id → download em andamento
         self.paused = False
-        self.worker: threading.Thread | None = None
         self.last_file: Path | None = None
         self._debounce_id = None
         self._preview_token = 0
@@ -302,7 +300,7 @@ class App(ctk.CTk):
     def start_update(self) -> None:
         if not self.release or self._updating:
             return
-        if self.job and not messagebox.askyesno(
+        if self.jobs and not messagebox.askyesno(
                 APP_TITLE, "Há downloads em andamento. Atualizar agora vai cancelá-los. Continuar?", parent=self):
             return
         self._updating = True
@@ -332,11 +330,8 @@ class App(ctk.CTk):
     def _on_app_update_ready(self, installer: Path) -> None:
         self.banner_label.configure(text="Instalando a atualização… o programa vai abrir de novo sozinho.")
         self.update()
-        if self.job:
-            self.model.cancel_all()
-            self.job.cancel()
-            if self.worker:
-                self.worker.join(timeout=5)
+        self.model.cancel_all()
+        self._stop_all_jobs()
         # o instalador fecha este programa, atualiza e reabre (ver [Run] em installer/ColouBaixou.iss)
         subprocess.Popen(install_args(installer), close_fds=True,
                          creationflags=subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP)
@@ -547,8 +542,8 @@ class App(ctk.CTk):
 
     def _on_remove(self, item_id: int) -> None:
         item = self.model.remove(item_id)
-        if item and item.status == Status.DOWNLOADING and self.job:
-            self.job.cancel()
+        if item and item.id in self.jobs:
+            self.jobs[item.id][0].cancel()
         self._render_queue()
 
     def _on_open_item(self, item_id: int) -> None:
@@ -562,9 +557,9 @@ class App(ctk.CTk):
         self.pump_queue()
 
     def _cancel_all(self) -> None:
-        current = self.model.cancel_all()
-        if current and self.job:
-            self.job.cancel()
+        for item in self.model.cancel_all():
+            if item.id in self.jobs:
+                self.jobs[item.id][0].cancel()
         self._render_queue()
 
     def _clear_finished(self) -> None:
@@ -594,24 +589,27 @@ class App(ctk.CTk):
         self.pump_queue()
 
     def pump_queue(self) -> None:
-        if self.job or not self.tools or self.paused:
+        """Começa downloads até o limite do computador (enquanto um converte, os próximos já baixam)."""
+        if not self.tools:
             return
+        while not self.paused and len(self.jobs) < max_parallel(self.tools.hw_encoder):
+            if not self._start_next():
+                break
+        self._render_queue()
+
+    def _start_next(self) -> bool:
         item = self.model.next_item()
         # barreira 2: confere de novo na hora de começar (algo pode ter sido baixado enquanto esperava)
         while item is not None and (existing := self.downloaded_path(item.video_id, item.kind, item.channel, item.title)):
             self.model.mark_previously_downloaded(item.id, existing)
             item = self.model.next_item()
         if item is None:
-            self._render_queue()
-            return
+            return False
         self.model.start(item.id)
         item_id, video_id, kind, info, res = item.id, item.video_id, item.kind, item.info, item.res
         base = self.settings.base_dir  # a pasta vale a partir do início de cada item
-        self.job_item = item_id
-        self.job = job = Job(self.tools, app_data_dir() / "tmp",
-                             lambda p: self.events.put(("q_progress", (item_id, p))))
+        job = Job(self.tools, app_data_dir() / "tmp", lambda p: self.events.put(("q_progress", (item_id, p))))
         tools, fast, history = self.tools, self.fast, self.history
-        self._render_queue()
 
         def work(info=info):
             url = canonical_url(video_id)
@@ -637,8 +635,16 @@ class App(ctk.CTk):
                 log.exception("falha inesperada no download")
                 self.events.put(("q_failed", (item_id, GENERIC_ERROR)))
 
-        self.worker = threading.Thread(target=work, daemon=True)
-        self.worker.start()
+        worker = threading.Thread(target=work, daemon=True)
+        self.jobs[item_id] = (job, worker)
+        worker.start()
+        return True
+
+    def _stop_all_jobs(self) -> None:
+        for job, _ in self.jobs.values():
+            job.cancel()
+        for _, worker in list(self.jobs.values()):
+            worker.join(timeout=5)
 
     def _on_q_previously(self, payload) -> None:
         item_id, path = payload
@@ -649,8 +655,7 @@ class App(ctk.CTk):
         self._job_finished(item_id)
 
     def _job_finished(self, item_id: int) -> None:
-        if self.job_item == item_id:
-            self.job = self.job_item = self.worker = None
+        self.jobs.pop(item_id, None)
         self._render_queue()
         self.pump_queue()
 
@@ -780,12 +785,10 @@ class App(ctk.CTk):
         self._show_folder()
 
     def _on_close(self) -> None:
-        if self.job:
+        if self.jobs:
             if not messagebox.askyesno(APP_TITLE, "Há downloads em andamento. Fechar e cancelar?", parent=self):
                 return
-            self.job.cancel()
-            if self.worker:
-                self.worker.join(timeout=5)
+            self._stop_all_jobs()
         self.destroy()
 
 

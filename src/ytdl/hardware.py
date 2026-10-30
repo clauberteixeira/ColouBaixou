@@ -36,3 +36,12 @@ def prefers_fast_mode(hw_encoder: str | None) -> bool:
     acelerada, mas ler um 4K VP9/AV1 (e o HDR) ainda pesa no processador.
     """
     return hw_encoder != "nvenc"
+
+
+def max_parallel(hw_encoder: str | None) -> int:
+    """Quantos vídeos baixar ao mesmo tempo: enquanto um converte, os próximos já baixam.
+
+    Pouco de propósito: mais conexões aumentam o risco de bloqueio do YouTube, e PCs
+    simples ficam lentos com várias conversões juntas.
+    """
+    return 3 if hw_encoder == "nvenc" else 2

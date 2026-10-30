@@ -1,5 +1,9 @@
 # Novidades
 
+## 1.3.0 (30/10/2026)
+
+- **Fila mais rápida**: baixa vários vídeos ao mesmo tempo. Enquanto um converte, os próximos já estão baixando (3 de cada vez com placa NVIDIA, 2 nos demais computadores). No teste, 4 músicas saíram em 33 s, contra cerca de 75 s uma por vez.
+
 ## 1.2.0 (29/10/2026)
 
 - **Nomes de arquivo limpos**: sai o que polui o título, como "[Vídeo Oficial]", "(Ao Vivo)", "| DVD …" e hashtags. Participações (feat./part.) continuam. No MP3, o título da música também sai limpo.
