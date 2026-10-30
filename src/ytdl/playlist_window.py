@@ -18,6 +18,7 @@ from ytdl.playlist import MIX_LIMIT, PLAYLIST_LIMIT, Playlist, PlaylistEntry, th
 from ytdl.queue_model import Kind
 from ytdl.queue_view import style_tree
 from ytdl.tools import Tools
+from ytdl.windowing import center_on_screen
 
 POLL_MS = 100
 THUMB = (64, 36)
@@ -42,13 +43,6 @@ def selection_summary(total: int, selected: int, downloaded: int) -> str:
     return " · ".join(parts)
 
 
-def _center(win: ctk.CTkToplevel, master) -> None:
-    win.update_idletasks()
-    x = master.winfo_rootx() + (master.winfo_width() - win.winfo_width()) // 2
-    y = master.winfo_rooty() + (master.winfo_height() - win.winfo_height()) // 2
-    win.geometry(f"+{max(x, 0)}+{max(y, 0)}")
-
-
 def ask_playlist(master) -> Literal["video", "playlist", None]:
     """Modal: o link faz parte de uma playlist. Devolve a escolha (None = fechou)."""
     dialog = ctk.CTkToplevel(master)
@@ -66,7 +60,7 @@ def ask_playlist(master) -> Literal["video", "playlist", None]:
                   hover_color=GRAY_HOVER, command=lambda: pick("video")).grid(row=1, column=0, padx=(20, 8), pady=(0, 20))
     ctk.CTkButton(dialog, text="Ver a playlist", command=lambda: pick("playlist")).grid(
         row=1, column=1, padx=(0, 20), pady=(0, 20))
-    _center(dialog, master)
+    center_on_screen(dialog)
     dialog.transient(master)
     dialog.after(50, dialog.grab_set)
     master.wait_window(dialog)
@@ -79,7 +73,6 @@ class PlaylistWindow(ctk.CTkToplevel):
                  is_downloaded: Callable[[PlaylistEntry, Kind], bool] = lambda entry, kind: False):
         super().__init__(master)
         self.title("Playlist")
-        self.geometry("760x600")
         self.minsize(600, 440)
         self.on_add, self.preselect, self.is_downloaded = on_add, preselect, is_downloaded
         self.events: queue.Queue = queue.Queue()
@@ -133,7 +126,7 @@ class PlaylistWindow(ctk.CTkToplevel):
 
         threading.Thread(target=self._load, args=(tools, url, playlist_id), daemon=True).start()
         self.after(POLL_MS, self._poll)
-        _center(self, master)
+        center_on_screen(self, 760, 600)
         self.transient(master)
         self.after(50, self.grab_set)
 

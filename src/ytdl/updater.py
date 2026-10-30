@@ -3,7 +3,6 @@
 import json
 import logging
 import re
-import shutil
 import urllib.error
 import urllib.request
 from dataclasses import dataclass

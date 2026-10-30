@@ -10,6 +10,7 @@ import customtkinter as ctk
 from ytdl.about import APP_NAME, AUTHOR, AUTHOR_URL, GUIDE_URL, ISSUES_URL, REPO_URL, VERSION
 from ytdl.tools import Tools, ytdlp_version
 from ytdl.updater import Release
+from ytdl.windowing import center_on_screen
 
 POLL_MS = 100
 OK_COLOR = ("#188038", "#81c995")
@@ -62,15 +63,9 @@ class SettingsWindow(ctk.CTkToplevel):
         if tools:
             threading.Thread(target=lambda: self.events.put(ytdlp_version(tools.ytdlp)), daemon=True).start()
         self.after(POLL_MS, self._poll)
-        self._center_on(master)
+        center_on_screen(self)
         self.transient(master)
         self.after(50, self.grab_set)  # o Toplevel precisa estar visível antes do grab
-
-    def _center_on(self, master) -> None:
-        self.update_idletasks()
-        x = master.winfo_rootx() + (master.winfo_width() - self.winfo_width()) // 2
-        y = master.winfo_rooty() + (master.winfo_height() - self.winfo_height()) // 2
-        self.geometry(f"+{max(x, 0)}+{max(y, 0)}")
 
     def _poll(self) -> None:
         if not self.winfo_exists():

@@ -1,5 +1,3 @@
-from pathlib import Path
-
 from ytdl.paths import destination_path, planned_path, sanitize_component, unique_path
 
 
