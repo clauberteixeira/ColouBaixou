@@ -85,3 +85,22 @@ def test_remember_playlist_ignores_a_hidden_window():
     # minimizar a janela principal esconde a da playlist junto
     cfg = Config(base_dir=Path("x"), playlist_size=(950, 700))
     assert remember_playlist(cfg, "withdrawn", (1, 1)) == cfg
+
+
+def test_default_kind_roundtrip(tmp_path):
+    p = tmp_path / "config.json"
+    save_config(Config(base_dir=tmp_path, default_kind="audio"), p)
+    assert load_config(p).default_kind == "audio"
+
+
+def test_config_from_older_version_starts_with_mp4(tmp_path):
+    p = tmp_path / "config.json"
+    p.write_text(json.dumps({"base_dir": str(tmp_path)}), encoding="utf-8")
+    assert load_config(p).default_kind == "video"
+
+
+def test_unknown_default_kind_is_ignored_and_keeps_the_folder(tmp_path):
+    p = tmp_path / "config.json"
+    p.write_text(json.dumps({"base_dir": str(tmp_path), "default_kind": "avi"}), encoding="utf-8")
+    cfg = load_config(p)
+    assert cfg.base_dir == tmp_path and cfg.default_kind == "video"

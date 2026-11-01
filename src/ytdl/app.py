@@ -29,7 +29,7 @@ from ytdl.paths import app_data_dir, resource_dir
 from ytdl.playlist import PlaylistEntry, thumb_url
 from ytdl.playlist_window import PlaylistWindow, ask_playlist
 from ytdl.queue_model import Kind, QueueModel, Status
-from ytdl.queue_view import ROW_THUMB, QueueView
+from ytdl.queue_view import KIND_LABEL, ROW_THUMB, QueueView
 from ytdl.settings import SettingsWindow
 from ytdl.tools import Tools, load_tools, update_ytdlp
 from ytdl.updater import Release, check_latest, download_installer, install_args
@@ -43,6 +43,7 @@ BEST = "Melhor disponível"
 THUMB_SIZE = (160, 90)
 DEBOUNCE_MS = 400
 POLL_MS = 100
+PAD = 16
 RED = ("#d93025", "#d93025")
 RED_HOVER = ("#b3261e", "#b3261e")
 BLUE = ("#1a73e8", "#1a73e8")
@@ -64,7 +65,7 @@ class App(ctk.CTk):
         self.settings = load_config()
         width, height = self.settings.window_size or (840, 680)
         self.geometry(f"{width}x{height}")
-        self.minsize(640, 540)
+        self.minsize(690, 540)  # cabem todos os botões, até "Atualizar motor"
         center_on_screen(self, width, height)
         if self.settings.maximized:
             self.after(0, self.state, "zoomed")  # antes de abrir, o mainloop do CTk desfaz
@@ -76,7 +77,7 @@ class App(ctk.CTk):
         self.quality_map: dict[str, int | None] = {}
         self.model = QueueModel()
         self.history = DownloadHistory()
-        self.default_kind: Kind = "video"
+        self.default_kind: Kind = self.settings.default_kind
         self.jobs: dict[int, tuple[Job, threading.Thread]] = {}  # item_id → download em andamento
         self.paused = False
         self.last_file: Path | None = None
@@ -88,6 +89,7 @@ class App(ctk.CTk):
         self._asked_playlist: str | None = None
         self.release: Release | None = None  # nova versão do programa, se houver
         self._updating = False
+        self._wrap_width = 0
         self._detail_requests: queue.Queue = queue.Queue()
         self._thumb_requests: queue.Queue = queue.Queue()
 
@@ -96,6 +98,7 @@ class App(ctk.CTk):
         self._render_queue()
         self.protocol("WM_DELETE_WINDOW", self._on_close)
         self.bind("<FocusIn>", lambda e: self._autofill())
+        self.bind("<Configure>", self._wrap_labels)
         self.after(POLL_MS, self._poll)
         self._status("Preparando componentes…")
         self._background(self._prepare_tools)
@@ -106,7 +109,7 @@ class App(ctk.CTk):
 
     def _build(self) -> None:
         self.grid_columnconfigure(0, weight=1)
-        pad = {"padx": 16}
+        pad = {"padx": PAD}
 
         top = ctk.CTkFrame(self, fg_color="transparent")
         top.grid(row=0, column=0, sticky="ew", pady=(16, 4), **pad)
@@ -131,7 +134,7 @@ class App(ctk.CTk):
                                         command=self.start_update)
         self.banner_btn.grid(row=0, column=2, padx=(0, 8))
 
-        self.folder_label = ctk.CTkLabel(self, text="", anchor="w", text_color=MUTED)
+        self.folder_label = ctk.CTkLabel(self, text="", anchor="w", justify="left", text_color=MUTED)
         self.folder_label.grid(row=1, column=0, sticky="ew", pady=(0, 2), **pad)
         self._show_folder()
 
@@ -177,7 +180,7 @@ class App(ctk.CTk):
         self.queue_title.grid(row=0, column=0, sticky="w")
         ctk.CTkLabel(header, text="Formato para os próximos:", text_color=MUTED).grid(row=0, column=1, padx=(0, 6))
         self.kind_switch = ctk.CTkSegmentedButton(header, values=["MP4", "MP3"], command=self._on_default_kind)
-        self.kind_switch.set("MP4")
+        self.kind_switch.set(KIND_LABEL[self.default_kind])
         self.kind_switch.grid(row=0, column=2)
 
         self.queue_view = QueueView(self, on_toggle=self._on_toggle, on_kind=self._on_item_kind,
@@ -214,6 +217,16 @@ class App(ctk.CTk):
 
     def _status(self, text: str, error: bool = False) -> None:
         self.status_label.configure(text=text, text_color=ERROR_COLOR if error else self._normal_text_color)
+
+    def _wrap_labels(self, event) -> None:
+        """Os textos longos quebram na largura atual da janela, em vez de sumir na borda."""
+        width = app_size(self)[0] - 2 * PAD
+        if event.widget is not self or width == self._wrap_width:
+            return
+        self._wrap_width = width
+        self.folder_label.configure(wraplength=width)
+        self.status_label.configure(wraplength=width)
+        self.title_label.configure(wraplength=width - THUMB_SIZE[0] - 3 * 12)
 
     def _clear_status(self) -> None:
         self._status("" if self.tools.js_runtime else NO_NODE_WARNING)
@@ -414,6 +427,7 @@ class App(ctk.CTk):
                        size=self.settings.playlist_size, on_close=self._save_playlist_window)
 
     def _add_playlist(self, entries: list[PlaylistEntry], kind: Kind) -> None:
+        self._remember_kind(kind)
         added, duplicates, downloaded = self.add_to_queue(
             [(e.video_id, {"title": e.title, "channel": e.channel, "duration": e.duration}) for e in entries],
             kind, Status.QUEUED)
@@ -508,6 +522,7 @@ class App(ctk.CTk):
     def _add_preview(self, kind: Kind) -> None:
         if not self.info:
             return
+        self._remember_kind(kind)
         info = self.info
         res = self.quality_map.get(self.quality_menu.get()) if kind == "video" else None
         existing = self.downloaded_path(info.id, kind, info.channel, info.title)
@@ -540,7 +555,14 @@ class App(ctk.CTk):
     # --- fila: ações do usuário -------------------------------------------
 
     def _on_default_kind(self, label: str) -> None:
-        self.default_kind = "audio" if label == "MP3" else "video"
+        self._remember_kind("audio" if label == "MP3" else "video")
+
+    def _remember_kind(self, kind: Kind) -> None:
+        """O último formato escolhido ou usado já vem marcado da próxima vez."""
+        self.default_kind = kind
+        self.kind_switch.set(KIND_LABEL[kind])
+        self.settings = replace(self.settings, default_kind=kind)
+        self._save_settings()
 
     def _on_toggle(self, item_id: int, checked: bool) -> None:
         self.model.set_checked(item_id, checked)
@@ -804,7 +826,7 @@ class App(ctk.CTk):
         try:
             save_config(self.settings)
         except OSError:
-            log.exception("não foi possível salvar o tamanho da janela")
+            log.exception("não foi possível salvar as configurações")
 
     def _save_window(self) -> None:
         self.settings = remember_window(self.settings, self.state(), app_size(self))

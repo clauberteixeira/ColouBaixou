@@ -5,6 +5,7 @@ travavam a tela por ~40 s; com o Treeview, menos de 0,1 s.
 """
 
 import tkinter
+from tkinter import font as tkfont
 from tkinter import ttk
 from typing import Callable
 
@@ -15,13 +16,16 @@ from ytdl.images import CHECK_SIZE, GAP, Check, row_image
 from ytdl.progress import describe
 from ytdl.queue_model import ACTIVE, EDITABLE, FINISHED, Item, Status
 
-TITLE_MAX = 60
 ROW_THUMB = (56, 32)
 KIND_LABEL = {"video": "MP4", "audio": "MP3"}
 COLUMNS = ("title", "channel", "kind", "status", "remove")
-FIXED_COLUMNS = ("#0", "channel", "kind", "remove")
+FIXED_COLUMNS = ("#0", "kind", "remove")
 STATUS_WIDTH = 270  # cabe "62% · 48 MB de 77 MB · faltam ~9s"
-MIN_FLEXIBLE = 150  # título + situação
+CHANNEL_WIDTHS = (100, 200)
+MIN_FLEXIBLE = 250  # título + canal + situação
+CELL_PADDING = 12
+WRAP_DELAY_MS = 80  # ao arrastar a borda da janela, espera a mão parar para refazer as linhas
+FONT = ("Segoe UI", 10)
 STYLE = "Colou.Treeview"
 
 
@@ -47,7 +51,7 @@ def display_title(item: Item) -> str:
     if not item.title:
         link = f"youtu.be/{item.video_id}"
         return link if item.status in FINISHED else f"{link} (carregando…)"
-    return item.title if len(item.title) <= TITLE_MAX else item.title[:TITLE_MAX - 1] + "…"
+    return item.title
 
 
 def row_values(item: Item) -> tuple[str, ...]:
@@ -79,14 +83,46 @@ def menu_actions(item: Item) -> list[tuple[str, str]]:
     return actions
 
 
-def column_widths(total: int, fixed: int) -> tuple[int, int]:
-    """Larguras do título e da situação: juntas ocupam o que sobra, para o ✕ não sair da tela.
+def channel_width(free: int) -> int:
+    return min(max(free * 18 // 100, CHANNEL_WIDTHS[0]), CHANNEL_WIDTHS[1])
 
-    A situação fica com 60% até caber o progresso; com mais espaço, cada uma fica com metade.
+
+def column_widths(total: int, fixed: int) -> tuple[int, int, int]:
+    """Larguras de título, canal e situação: juntas ocupam o que sobra, para o ✕ não sair da tela.
+
+    A situação fica com 60% até caber o progresso; com mais espaço, quem cresce é o título.
     """
     free = max(total - fixed, MIN_FLEXIBLE)
-    status = min(free * 3 // 5, max(STATUS_WIDTH, free // 2))
-    return free - status, status
+    channel = channel_width(free)
+    rest = free - channel
+    status = min(rest * 3 // 5, max(STATUS_WIDTH, rest * 2 // 5))
+    return rest - status, channel, status
+
+
+def _fit(text: str, width: int, measure: Callable[[str], int]) -> int:
+    """Quantas letras do começo do texto cabem em width (pelo menos uma)."""
+    low, high = 1, len(text)
+    while low < high:
+        middle = (low + high + 1) // 2
+        if measure(text[:middle]) <= width:
+            low = middle
+        else:
+            high = middle - 1
+    return low
+
+
+def wrap_cell(text: str, width: int, measure: Callable[[str], int]) -> str:
+    """Quebra o texto em até duas linhas que caibam na coluna; o que passar disso vira "…"."""
+    if measure(text) <= width:
+        return text
+    cut = _fit(text, width, measure)
+    space = text.rfind(" ", 0, cut + 1)
+    if space > 0:
+        cut = space
+    first, second = text[:cut].rstrip(), text[cut:].lstrip()
+    if measure(second) > width:
+        second = second[:_fit(second, width - measure("…"), measure)].rstrip() + "…"
+    return f"{first}\n{second}"
 
 
 def _colors() -> tuple[str, str, str, str]:
@@ -101,8 +137,9 @@ def style_tree(row_height: int) -> str:
     bg, fg, head, sel = _colors()
     style = ttk.Style()
     style.theme_use("clam")
-    style.configure(STYLE, background=bg, fieldbackground=bg, foreground=fg, rowheight=row_height,
-                    borderwidth=0, font=("Segoe UI", 10))
+    two_lines = 2 * tkfont.Font(family=FONT[0], size=FONT[1]).metrics("linespace") + 4
+    style.configure(STYLE, background=bg, fieldbackground=bg, foreground=fg, rowheight=max(row_height, two_lines),
+                    borderwidth=0, font=FONT)
     style.configure(f"{STYLE}.Heading", background=head, foreground=fg, relief="flat", font=("Segoe UI", 9, "bold"))
     style.map(STYLE, background=[("selected", sel)], foreground=[("selected", "#ffffff")])
     style.layout(STYLE, [("Treeview.treearea", {"sticky": "nswe"})])
@@ -121,6 +158,8 @@ class QueueView(ctk.CTkFrame):
         self.items: dict[int, Item] = {}
         self.thumbs: dict[str, Image.Image] = {}
         self._images: dict[tuple, ImageTk.PhotoImage] = {}  # (video_id, caixinha) → imagem pronta
+        self._measure = tkfont.Font(family=FONT[0], size=FONT[1]).measure
+        self._wrap_after: str | None = None
 
         self.tree = ttk.Treeview(self, columns=COLUMNS, show="tree headings", style=style_tree(ROW_THUMB[1] + 8),
                                  selectmode="browse")
@@ -130,7 +169,7 @@ class QueueView(ctk.CTkFrame):
         self.tree.column("#0", width=CHECK_SIZE + GAP + ROW_THUMB[0] + 28, stretch=False)
         for col in COLUMNS:
             self.tree.heading(col, text=headings[col], anchor="w")
-            stretch = col in ("title", "status")
+            stretch = col in ("title", "channel", "status")
             anchor = "center" if col == "remove" else "w"
             self.tree.column(col, width=widths[col], stretch=stretch, anchor=anchor, minwidth=widths[col] // 2)
         self.tree.tag_configure("error", foreground="#e05a50")
@@ -148,7 +187,7 @@ class QueueView(ctk.CTkFrame):
 
         bg, fg, _, sel = _colors()
         self.menu = tkinter.Menu(self, tearoff=0, bg=bg, fg=fg, activebackground=sel,
-                                 activeforeground="#ffffff", font=("Segoe UI", 10))
+                                 activeforeground="#ffffff", font=FONT)
 
         self.empty = ctk.CTkLabel(self, text="Nenhum item na fila. Cole um ou vários links acima.",
                                   text_color=("gray35", "gray65"), fg_color="transparent")
@@ -161,9 +200,16 @@ class QueueView(ctk.CTkFrame):
             self._images[key] = ImageTk.PhotoImage(row_image(self.thumbs.get(item.video_id), key[1], ROW_THUMB))
         return self._images[key]
 
+    def _wrapped(self, item: Item) -> tuple[str, ...]:
+        def fit(column: str, text: str) -> str:
+            return wrap_cell(text, self.tree.column(column, "width") - CELL_PADDING, self._measure)
+
+        title, channel, kind, status, remove = row_values(item)
+        return fit("title", title), fit("channel", channel), kind, fit("status", status), remove
+
     def _apply(self, item: Item) -> None:
         iid = str(item.id)
-        kwargs = {"values": row_values(item), "tags": (row_tag(item),), "image": self._image(item)}
+        kwargs = {"values": self._wrapped(item), "tags": (row_tag(item),), "image": self._image(item)}
         if self.tree.exists(iid):
             self.tree.item(iid, **kwargs)
         else:
@@ -185,9 +231,17 @@ class QueueView(ctk.CTkFrame):
 
     def _fit_columns(self, event) -> None:
         fixed = sum(self.tree.column(column, "width") for column in FIXED_COLUMNS)
-        title, status = column_widths(event.width, fixed)
-        self.tree.column("title", width=title)
-        self.tree.column("status", width=status)
+        for column, width in zip(("title", "channel", "status"), column_widths(event.width, fixed)):
+            self.tree.column(column, width=width)
+        if self._wrap_after:
+            self.after_cancel(self._wrap_after)
+        self._wrap_after = self.after(WRAP_DELAY_MS, self._rewrap)
+
+    def _rewrap(self) -> None:
+        self._wrap_after = None
+        for item in self.items.values():
+            if self.tree.exists(str(item.id)):
+                self.tree.item(str(item.id), values=self._wrapped(item))
 
     def update_item(self, item: Item) -> None:
         self.items[item.id] = item

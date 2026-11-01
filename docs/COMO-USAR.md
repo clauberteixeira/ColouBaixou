@@ -47,7 +47,7 @@ Para ocupar menos espaço, escolha uma qualidade menor (720p, 480p…).
 5. Para trocar entre vídeo e áudio, clique em **MP4 ▾ / MP3 ▾** na linha do vídeo.
 6. Clique em **Baixar selecionados**.
 
-> **Formato para os próximos** (acima da fila, à direita) define se os próximos links colados entram como MP4 ou MP3.
+> **Formato para os próximos** (acima da fila, à direita) define se os próximos links colados entram como MP4 ou MP3. O programa lembra o último formato usado, mesmo depois de fechar.
 
 Links colados **nunca começam a baixar sozinhos**: você sempre confere antes.
 

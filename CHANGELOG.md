@@ -1,5 +1,12 @@
 # Novidades
 
+## 1.4.0 (01/11/2026)
+
+- **Lembra o último formato**: o MP3 ou MP4 usado por último já vem marcado em *Formato para os próximos*, mesmo depois de fechar e abrir.
+- **Nada mais fica cortado**: caminho da pasta, título e avisos quebram de linha, e as colunas da fila e da playlist acompanham a largura da janela. Títulos longos usam duas linhas.
+- **Corrigido:** na playlist, as colunas Duração e Já baixado ficavam escondidas.
+- **Abre exatamente no centro do monitor**, sem ficar atrás da barra de tarefas.
+
 ## 1.3.3 (01/11/2026)
 
 - **Botão direito na fila**: selecione um vídeo e escolha **Cancelar** (ou **Cancelar download**) ou **Remover da lista**. A fila continua com os próximos.

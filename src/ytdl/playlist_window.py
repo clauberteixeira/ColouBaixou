@@ -3,6 +3,7 @@
 import io
 import queue
 import threading
+from tkinter import font as tkfont
 from tkinter import ttk
 from typing import Callable, Literal
 
@@ -16,7 +17,7 @@ from ytdl.images import CHECK_SIZE, GAP, Check, row_image
 from ytdl.net import urlopen
 from ytdl.playlist import MIX_LIMIT, PLAYLIST_LIMIT, Playlist, PlaylistEntry, thumb_url
 from ytdl.queue_model import Kind
-from ytdl.queue_view import style_tree
+from ytdl.queue_view import CELL_PADDING, FONT, WRAP_DELAY_MS, channel_width, style_tree, wrap_cell
 from ytdl.tools import Tools
 from ytdl.windowing import app_size, center_on_screen
 
@@ -41,6 +42,13 @@ def selection_summary(total: int, selected: int, downloaded: int) -> str:
     if downloaded:
         parts.append(f"{downloaded} já baixado{'s' if downloaded != 1 else ''}")
     return " · ".join(parts)
+
+
+def playlist_widths(total: int, fixed: int) -> tuple[int, int]:
+    """Larguras do título e do canal: juntas ocupam o que sobra, para nenhuma coluna sair da tela."""
+    free = total - fixed
+    channel = channel_width(free)
+    return free - channel, channel
 
 
 def ask_playlist(master) -> Literal["video", "playlist", None]:
@@ -78,6 +86,8 @@ class PlaylistWindow(ctk.CTkToplevel):
         self.minsize(600, 440)
         self.on_add, self.preselect, self.is_downloaded = on_add, preselect, is_downloaded
         self.on_close = on_close
+        self._measure = tkfont.Font(family=FONT[0], size=FONT[1]).measure
+        self._wrap_after: str | None = None
         self.events: queue.Queue = queue.Queue()
         self.entries: dict[str, PlaylistEntry] = {}
         self.checked: dict[str, bool] = {}
@@ -101,7 +111,7 @@ class PlaylistWindow(ctk.CTkToplevel):
                                  style=style_tree(THUMB[1] + 10), selectmode="none")
         self.tree.heading("#0", text="")
         self.tree.column("#0", width=CHECK_SIZE + GAP + THUMB[0] + 28, stretch=False)
-        for col, text, width, stretch in (("title", "Título", 300, True), ("channel", "Canal", 140, False),
+        for col, text, width, stretch in (("title", "Título", 300, True), ("channel", "Canal", 140, True),
                                           ("duration", "Duração", 70, False), ("state", "", 110, False)):
             self.tree.heading(col, text=text, anchor="w")
             self.tree.column(col, width=width, stretch=stretch, anchor="w", minwidth=width // 2)
@@ -112,9 +122,13 @@ class PlaylistWindow(ctk.CTkToplevel):
         scroll.grid(row=0, column=1, sticky="ns", pady=4)
         self.tree.configure(yscrollcommand=scroll.set)
         self.tree.bind("<ButtonRelease-1>", self._on_click)
+        self.tree.bind("<Configure>", self._fit_columns)
+
+        self.summary = ctk.CTkLabel(self, text="", anchor="w", text_color=MUTED)
+        self.summary.grid(row=3, column=0, sticky="ew", padx=16)
 
         bottom = ctk.CTkFrame(self, fg_color="transparent")
-        bottom.grid(row=3, column=0, sticky="ew", padx=16, pady=(0, 16))
+        bottom.grid(row=4, column=0, sticky="ew", padx=16, pady=(4, 16))
         bottom.grid_columnconfigure(2, weight=1)
         self.all_btn = ctk.CTkButton(bottom, text="Marcar todos", width=130, state="disabled", fg_color=GRAY,
                                      text_color=("gray10", "gray90"), hover_color=GRAY_HOVER, command=self._toggle_all)
@@ -122,13 +136,12 @@ class PlaylistWindow(ctk.CTkToplevel):
         self.kind_switch = ctk.CTkSegmentedButton(bottom, values=["MP4", "MP3"], command=lambda v: self._on_kind())
         self.kind_switch.set("MP3" if default_kind == "audio" else "MP4")
         self.kind_switch.grid(row=0, column=1)
-        self.summary = ctk.CTkLabel(bottom, text="", text_color=MUTED)
-        self.summary.grid(row=0, column=2, padx=12, sticky="e")
         self.add_btn = ctk.CTkButton(bottom, text="Adicionar à fila", width=170, state="disabled", command=self._add)
         self.add_btn.grid(row=0, column=3)
 
         threading.Thread(target=self._load, args=(tools, url, playlist_id), daemon=True).start()
         self.after(POLL_MS, self._poll)
+        self.bind("<Configure>", self._wrap_title)
         center_on_screen(self, *(size or (760, 600)))
         self.protocol("WM_DELETE_WINDOW", self.destroy)  # sem isso, o X fecha direto pelo Tk
         self.transient(master)
@@ -137,6 +150,34 @@ class PlaylistWindow(ctk.CTkToplevel):
     def destroy(self) -> None:
         self.on_close(self.state(), app_size(self))
         super().destroy()
+
+    # --- largura da janela --------------------------------------------------
+
+    def _wrap_title(self, event) -> None:
+        if event.widget is self:
+            self.title_label.configure(wraplength=app_size(self)[0] - 32)
+
+    def _fit_columns(self, event) -> None:
+        fixed = sum(self.tree.column(column, "width") for column in ("#0", "duration", "state"))
+        for column, width in zip(("title", "channel"), playlist_widths(event.width, fixed)):
+            self.tree.column(column, width=width)
+        if self._wrap_after:
+            self.after_cancel(self._wrap_after)
+        self._wrap_after = self.after(WRAP_DELAY_MS, self._rewrap)
+
+    def _rewrap(self) -> None:
+        self._wrap_after = None
+        for video_id, entry in self.entries.items():
+            title, channel = self._cells(entry)
+            self.tree.set(video_id, "title", title)
+            self.tree.set(video_id, "channel", channel)
+
+    def _cells(self, entry: PlaylistEntry) -> tuple[str, str]:
+        def fit(column: str, text: str) -> str:
+            return wrap_cell(text, self.tree.column(column, "width") - CELL_PADDING, self._measure)
+
+        title = entry.title if entry.available else f"{entry.title} (indisponível)"
+        return fit("title", title), fit("channel", entry.channel)
 
     # --- carregamento (threads só fazem events.put) ------------------------
 
@@ -185,9 +226,9 @@ class PlaylistWindow(ctk.CTkToplevel):
                 continue
             self.entries[entry.video_id] = entry
             self.checked[entry.video_id] = entry.video_id == self.preselect
-            title = entry.title if entry.available else f"{entry.title} (indisponível)"
+            title, channel = self._cells(entry)
             duration = format_duration(entry.duration) if entry.available else ""
-            self.tree.insert("", "end", iid=entry.video_id, values=(title, entry.channel, duration, ""))
+            self.tree.insert("", "end", iid=entry.video_id, values=(title, channel, duration, ""))
         self.all_btn.configure(state="normal")
         self._on_kind()
 
