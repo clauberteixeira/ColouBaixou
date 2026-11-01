@@ -1,5 +1,12 @@
 # Novidades
 
+## 1.3.1 (01/11/2026)
+
+- **Corrigido:** em alguns computadores o programa abria com "Não foi possível preparar os componentes" mesmo com a internet funcionando. O motor de download agora vem dentro do instalador (que passa a ter cerca de 87 MB), e as conexões seguras funcionam também em computadores recém-formatados.
+- **A janela lembra o tamanho** (e se estava maximizada) ao fechar e abrir de novo.
+- Se algo der errado ao abrir, a mensagem diz o motivo e o que fazer.
+- **Corrigido:** o aviso de que falta um componente (Deno) sumia assim que aparecia.
+
 ## 1.3.0 (30/10/2026)
 
 - **Fila mais rápida**: baixa vários vídeos ao mesmo tempo. Enquanto um converte, os próximos já estão baixando (3 de cada vez com placa NVIDIA, 2 nos demais computadores). No teste, 4 músicas saíram em 33 s, contra cerca de 75 s uma por vez.

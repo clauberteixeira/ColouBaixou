@@ -31,7 +31,7 @@ Windows 10 ou 11 · 64 bits · grátis · sem propaganda
 
 ## Como começar
 
-1. **[Baixe o instalador](https://github.com/clauberteixeira/ColouBaixou/releases/latest)** (arquivo `ColouBaixou-Setup-….exe`, cerca de 64 MB).
+1. **[Baixe o instalador](https://github.com/clauberteixeira/ColouBaixou/releases/latest)** (arquivo `ColouBaixou-Setup-….exe`, cerca de 87 MB).
 2. Abra o arquivo e siga o **[passo a passo de instalação](docs/INSTALACAO.md)**.
    > O Windows pode mostrar "O Windows protegeu o computador". É normal para programas gratuitos sem assinatura paga. [Veja como continuar](docs/INSTALACAO.md#o-windows-protegeu-o-computador).
 3. Abra o **ColouBaixô**, cole o link do YouTube e clique em **MP4** ou **MP3**.

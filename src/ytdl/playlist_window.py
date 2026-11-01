@@ -3,7 +3,6 @@
 import io
 import queue
 import threading
-import urllib.request
 from tkinter import ttk
 from typing import Callable, Literal
 
@@ -14,6 +13,7 @@ from ytdl.downloader import fetch_playlist
 from ytdl.errors import DownloadError
 from ytdl.formats import format_duration
 from ytdl.images import CHECK_SIZE, GAP, Check, row_image
+from ytdl.net import urlopen
 from ytdl.playlist import MIX_LIMIT, PLAYLIST_LIMIT, Playlist, PlaylistEntry, thumb_url
 from ytdl.queue_model import Kind
 from ytdl.queue_view import style_tree
@@ -144,7 +144,7 @@ class PlaylistWindow(ctk.CTkToplevel):
         self.events.put(("loaded", playlist))
         for entry in playlist.entries:  # miniaturas, uma por vez
             try:
-                with urllib.request.urlopen(thumb_url(entry.video_id), timeout=15) as resp:
+                with urlopen(thumb_url(entry.video_id), timeout=15) as resp:
                     self.events.put(("thumb", (entry.video_id, Image.open(io.BytesIO(resp.read())).convert("RGB"))))
             except Exception:
                 pass

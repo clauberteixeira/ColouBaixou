@@ -21,6 +21,30 @@ def test_ensure_ytdlp_skips_when_present(tmp_path):
     ensure_ytdlp(tmp_path, download=lambda *a: pytest.fail("não deveria baixar"))
 
 
+def test_ensure_ytdlp_uses_copy_inside_the_program_without_internet(tmp_path):
+    bundled = tmp_path / "yt-dlp-do-programa.exe"
+    bundled.write_bytes(b"exe")
+    p = ensure_ytdlp(tmp_path / "bin", download=lambda *a: pytest.fail("não deveria baixar"), bundled=bundled)
+    assert p == bundled
+
+
+def test_ensure_ytdlp_prefers_copy_already_in_bin(tmp_path):
+    # quem já usava o programa tem aqui a versão atualizada pelo yt-dlp -U
+    bundled = tmp_path / "yt-dlp-do-programa.exe"
+    bundled.write_bytes(b"antigo")
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    (bin_dir / "yt-dlp.exe").write_bytes(b"novo")
+    assert ensure_ytdlp(bin_dir, bundled=bundled) == bin_dir / "yt-dlp.exe"
+
+
+def test_ensure_ytdlp_downloads_when_copy_inside_the_program_is_gone(tmp_path):
+    # ex.: o antivírus removeu o arquivo
+    p = ensure_ytdlp(tmp_path / "bin", download=lambda url, dest: dest.write_bytes(b"exe"),
+                     bundled=tmp_path / "sumiu.exe")
+    assert p == tmp_path / "bin" / "yt-dlp.exe"
+
+
 def test_failed_download_leaves_no_exe(tmp_path):
     def boom(url, dest):
         dest.write_bytes(b"meio")

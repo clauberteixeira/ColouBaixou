@@ -47,6 +47,18 @@ RULES: list[tuple[tuple[str, ...], FriendlyError]] = [
 ]
 GENERIC = FriendlyError("Não foi possível baixar este vídeo. Tente atualizar o programa.", True)
 
+TOOLS_RULES: list[tuple[tuple[str, ...], str]] = [
+    (("certificate", "ssl"),
+     "Não foi possível preparar os componentes: conexão segura recusada. "
+     "Confira a data e a hora do computador e abra o programa de novo."),
+    (("[winerror 5]", "[winerror 32]", "[errno 13]"),
+     "Não foi possível preparar os componentes: o antivírus pode ter bloqueado. "
+     "Libere o ColouBaixô no antivírus e abra o programa de novo."),
+    (("ffmpeg não encontrado",),
+     "Falta um arquivo do programa (o antivírus pode ter removido). Instale o ColouBaixô de novo."),
+]
+TOOLS_GENERIC = "Não foi possível preparar os componentes. Verifique a internet e abra o programa de novo."
+
 
 def friendly_error(output: str) -> FriendlyError:
     text = output.lower()
@@ -54,6 +66,14 @@ def friendly_error(output: str) -> FriendlyError:
         if any(n in text for n in needles):
             return err
     return GENERIC
+
+
+def tools_error(output: str) -> str:
+    text = output.lower()
+    for needles, message in TOOLS_RULES:
+        if any(n in text for n in needles):
+            return message
+    return TOOLS_GENERIC
 
 
 def error_for_live(live_status: str | None) -> FriendlyError | None:

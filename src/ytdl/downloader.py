@@ -7,7 +7,6 @@ import shutil
 import subprocess
 import threading
 import urllib.error
-import urllib.request
 import uuid
 from collections import deque
 from contextlib import contextmanager
@@ -17,6 +16,7 @@ from typing import Callable, Iterator
 from ytdl.commands import audio_args, ffmpeg_args, info_args, playlist_args, video_args
 from ytdl.errors import NO_SPACE, Cancelled, DownloadError, error_for_live, friendly_error
 from ytdl.formats import VideoInfo, VideoPlan, available_heights, best_audio, parse_info
+from ytdl.net import urlopen
 from ytdl.paths import destination_path
 from ytdl.playlist import Playlist, parse_playlist, playlist_limit
 from ytdl.titles import clean_title
@@ -72,7 +72,7 @@ def fetch_info(t: Tools, url: str, run=run_quiet) -> VideoInfo:
 OEMBED_URL = "https://www.youtube.com/oembed?format=json&url=https://www.youtube.com/watch?v={}"
 
 
-def fetch_oembed(video_id: str, opener=urllib.request.urlopen) -> tuple[str, str] | None:
+def fetch_oembed(video_id: str, opener=urlopen) -> tuple[str, str] | None:
     """Título e canal pela consulta leve do YouTube (não conta como extração do yt-dlp).
 
     None quando não dá para saber por aqui (vídeo com incorporação bloqueada, sem rede…).

@@ -27,6 +27,8 @@ UninstallDisplayName={#AppName}
 Compression=lzma2/ultra64
 SolidCompression=yes
 LZMANumBlockThreads=4
+; o compilador é de 32 bits e fica sem memória nesta compressão; em processo separado usa 64 bits
+LZMAUseSeparateProcess=yes
 WizardStyle=modern
 CloseApplications=yes
 
