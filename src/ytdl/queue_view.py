@@ -4,6 +4,7 @@ Usa o Treeview nativo (ttk): com componentes desenhados do CustomTkinter, 500 it
 travavam a tela por ~40 s; com o Treeview, menos de 0,1 s.
 """
 
+import tkinter
 from tkinter import ttk
 from typing import Callable
 
@@ -12,12 +13,15 @@ from PIL import Image, ImageTk
 
 from ytdl.images import CHECK_SIZE, GAP, Check, row_image
 from ytdl.progress import describe
-from ytdl.queue_model import EDITABLE, FINISHED, Item, Status
+from ytdl.queue_model import ACTIVE, EDITABLE, FINISHED, Item, Status
 
 TITLE_MAX = 60
 ROW_THUMB = (56, 32)
 KIND_LABEL = {"video": "MP4", "audio": "MP3"}
 COLUMNS = ("title", "channel", "kind", "status", "remove")
+FIXED_COLUMNS = ("#0", "channel", "kind", "remove")
+STATUS_WIDTH = 270  # cabe "62% · 48 MB de 77 MB · faltam ~9s"
+MIN_FLEXIBLE = 150  # título + situação
 STYLE = "Colou.Treeview"
 
 
@@ -27,6 +31,8 @@ def status_text(item: Item) -> tuple[str, bool]:
         return "Em revisão", False
     if item.status == Status.QUEUED:
         return "Aguardando", False
+    if item.cancelling and item.status == Status.DOWNLOADING:
+        return "Cancelando…", False
     if item.status == Status.DOWNLOADING:
         return (describe(item.progress) if item.progress else "Iniciando…"), False
     if item.status == Status.DONE:
@@ -64,11 +70,35 @@ def row_tag(item: Item) -> str:
     return "muted" if item.status == Status.CANCELLED else "normal"
 
 
+def menu_actions(item: Item) -> list[tuple[str, str]]:
+    """Opções do botão direito: (texto, ação)."""
+    actions = [("Remover da lista", "remove")]
+    if item.status in ACTIVE and not item.cancelling:
+        label = "Cancelar download" if item.status == Status.DOWNLOADING else "Cancelar"
+        actions.insert(0, (label, "cancel"))
+    return actions
+
+
+def column_widths(total: int, fixed: int) -> tuple[int, int]:
+    """Larguras do título e da situação: juntas ocupam o que sobra, para o ✕ não sair da tela.
+
+    A situação fica com 60% até caber o progresso; com mais espaço, cada uma fica com metade.
+    """
+    free = max(total - fixed, MIN_FLEXIBLE)
+    status = min(free * 3 // 5, max(STATUS_WIDTH, free // 2))
+    return free - status, status
+
+
+def _colors() -> tuple[str, str, str, str]:
+    """Fundo, texto, cabeçalho e seleção, seguindo o tema claro/escuro do app."""
+    if ctk.get_appearance_mode() == "Dark":
+        return "#2b2b2b", "#e6e6e6", "#333333", "#1f6aa5"
+    return "#ffffff", "#1a1a1a", "#e9e9e9", "#3a7ebf"
+
+
 def style_tree(row_height: int) -> str:
     """Cores do Treeview seguindo o tema claro/escuro do app."""
-    dark = ctk.get_appearance_mode() == "Dark"
-    bg, fg, head, sel = ("#2b2b2b", "#e6e6e6", "#333333", "#1f6aa5") if dark else \
-        ("#ffffff", "#1a1a1a", "#e9e9e9", "#3a7ebf")
+    bg, fg, head, sel = _colors()
     style = ttk.Style()
     style.theme_use("clam")
     style.configure(STYLE, background=bg, fieldbackground=bg, foreground=fg, rowheight=row_height,
@@ -81,9 +111,11 @@ def style_tree(row_height: int) -> str:
 
 class QueueView(ctk.CTkFrame):
     def __init__(self, master, on_toggle: Callable[[int, bool], None], on_kind: Callable[[int, str], None],
-                 on_remove: Callable[[int], None], on_open: Callable[[int], None]):
+                 on_remove: Callable[[int], None], on_open: Callable[[int], None],
+                 on_cancel: Callable[[int], None]):
         super().__init__(master)
         self.on_toggle, self.on_kind, self.on_remove, self.on_open = on_toggle, on_kind, on_remove, on_open
+        self.on_cancel = on_cancel
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure(0, weight=1)
         self.items: dict[int, Item] = {}
@@ -111,6 +143,12 @@ class QueueView(ctk.CTkFrame):
         self.tree.bind("<ButtonRelease-1>", self._on_click)
         self.tree.bind("<Double-1>", self._on_double)
         self.tree.bind("<Delete>", self._on_delete_key)
+        self.tree.bind("<Button-3>", self._on_right_click)
+        self.tree.bind("<Configure>", self._fit_columns)
+
+        bg, fg, _, sel = _colors()
+        self.menu = tkinter.Menu(self, tearoff=0, bg=bg, fg=fg, activebackground=sel,
+                                 activeforeground="#ffffff", font=("Segoe UI", 10))
 
         self.empty = ctk.CTkLabel(self, text="Nenhum item na fila. Cole um ou vários links acima.",
                                   text_color=("gray35", "gray65"), fg_color="transparent")
@@ -144,6 +182,12 @@ class QueueView(ctk.CTkFrame):
             self.empty.place_forget()
         else:
             self.empty.place(relx=0.5, rely=0.5, anchor="center")
+
+    def _fit_columns(self, event) -> None:
+        fixed = sum(self.tree.column(column, "width") for column in FIXED_COLUMNS)
+        title, status = column_widths(event.width, fixed)
+        self.tree.column("title", width=title)
+        self.tree.column("status", width=status)
 
     def update_item(self, item: Item) -> None:
         self.items[item.id] = item
@@ -184,6 +228,20 @@ class QueueView(ctk.CTkFrame):
         item, column = self._hit(event)
         if item and item.status == Status.DONE and column not in ("remove", "kind", "check"):
             self.on_open(item.id)
+
+    def _on_right_click(self, event) -> None:
+        item, _ = self._hit(event)
+        if item is None:
+            return
+        self.tree.selection_set(str(item.id))
+        handlers = {"cancel": self.on_cancel, "remove": self.on_remove}
+        self.menu.delete(0, "end")
+        for label, action in menu_actions(item):
+            self.menu.add_command(label=label, command=lambda run=handlers[action], item_id=item.id: run(item_id))
+        try:
+            self.menu.tk_popup(event.x_root, event.y_root)
+        finally:
+            self.menu.grab_release()
 
     def _on_delete_key(self, _event) -> None:
         for iid in self.tree.selection():

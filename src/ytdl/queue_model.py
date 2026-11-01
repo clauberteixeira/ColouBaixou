@@ -42,6 +42,7 @@ class Item:
     error: str | None = None
     path: Path | None = None
     previously: bool = False  # já estava baixado antes de entrar na fila
+    cancelling: bool = False  # pediu para cancelar; o download ainda não parou
     released_seq: int | None = field(default=None, repr=False)
 
 
@@ -125,13 +126,24 @@ class QueueModel:
     def requeue(self, item_id: int) -> None:
         """Devolve o item à fila na mesma posição (ex.: YouTube bloqueou temporariamente)."""
         if item := self.get(item_id):
-            item.status, item.error, item.progress = Status.QUEUED, None, None
+            item.status, item.error, item.progress, item.cancelling = Status.QUEUED, None, None, False
 
     def remove(self, item_id: int) -> Item | None:
         item = self.get(item_id)
         if item:
             self.items.remove(item)
         return item
+
+    def cancel(self, item_id: int) -> bool:
+        """Cancela um item; True se ele está baixando (quem chama cancela o Job)."""
+        item = self.get(item_id)
+        if not item or item.status not in ACTIVE:
+            return False
+        if item.status == Status.DOWNLOADING:
+            item.cancelling = True
+            return True
+        item.status = Status.CANCELLED
+        return False
 
     def cancel_all(self) -> list[Item]:
         """Cancela os itens na fila; devolve os que estão baixando (quem chama cancela os Jobs)."""
