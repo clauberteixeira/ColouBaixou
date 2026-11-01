@@ -16,6 +16,7 @@ class Config:
     base_dir: Path
     window_size: tuple[int, int] | None = None  # no tamanho do app (antes da escala do Windows)
     maximized: bool = False
+    playlist_size: tuple[int, int] | None = None
 
 
 def _default_path() -> Path:
@@ -33,14 +34,16 @@ def load_config(path: Path | None = None) -> Config:
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
         return Config(base_dir=Path(data["base_dir"]), window_size=_window_size(data.get("window_size")),
-                      maximized=data.get("maximized") is True)
+                      maximized=data.get("maximized") is True,
+                      playlist_size=_window_size(data.get("playlist_size")))
     except (OSError, ValueError, KeyError, TypeError):
         return Config(base_dir=default_base_dir())
 
 
 def save_config(cfg: Config, path: Path | None = None) -> None:
     path = path or _default_path()
-    data = {"base_dir": str(cfg.base_dir), "window_size": cfg.window_size, "maximized": cfg.maximized}
+    data = {"base_dir": str(cfg.base_dir), "window_size": cfg.window_size, "maximized": cfg.maximized,
+            "playlist_size": cfg.playlist_size}
     path.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
 
 
@@ -51,3 +54,8 @@ def remember_window(cfg: Config, state: str, size: tuple[int, int]) -> Config:
     if state != "normal":  # minimizada: o tamanho que o Tk informa não vale
         return cfg
     return replace(cfg, window_size=size, maximized=False)
+
+
+def remember_playlist(cfg: Config, state: str, size: tuple[int, int]) -> Config:
+    """A janela da playlist não maximiza: só o tamanho importa."""
+    return replace(cfg, playlist_size=size) if state == "normal" else cfg

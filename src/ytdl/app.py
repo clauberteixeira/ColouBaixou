@@ -17,7 +17,7 @@ import customtkinter as ctk
 from PIL import Image
 
 from ytdl.about import APP_NAME, AUTHOR, AUTHOR_URL, REPO_URL, VERSION
-from ytdl.config import Config, load_config, remember_window, save_config
+from ytdl.config import Config, load_config, remember_playlist, remember_window, save_config
 from ytdl.downloader import Job, cleanup_stale_temp, fetch_info, fetch_oembed
 from ytdl.errors import (BOT_BLOCK, INVALID_LINK, NO_NODE_WARNING, Cancelled, DownloadError, FriendlyError,
                          tools_error)
@@ -33,7 +33,7 @@ from ytdl.queue_view import ROW_THUMB, QueueView
 from ytdl.settings import SettingsWindow
 from ytdl.tools import Tools, load_tools, update_ytdlp
 from ytdl.updater import Release, check_latest, download_installer, install_args
-from ytdl.windowing import center_on_screen
+from ytdl.windowing import app_size, center_on_screen
 from ytdl.urls import canonical_url, extract_playlist_id, extract_video_id, extract_video_ids, should_autofill
 
 log = logging.getLogger("ytdl")
@@ -409,7 +409,8 @@ class App(ctk.CTk):
 
     def _open_playlist(self, url: str, playlist_id: str, preselect: str | None) -> None:
         PlaylistWindow(self, self.tools, url, playlist_id, preselect, self.default_kind, self._add_playlist,
-                       is_downloaded=lambda e, kind: self.downloaded_path(e.video_id, kind, e.channel, e.title) is not None)
+                       is_downloaded=lambda e, kind: self.downloaded_path(e.video_id, kind, e.channel, e.title) is not None,
+                       size=self.settings.playlist_size, on_close=self._save_playlist_window)
 
     def _add_playlist(self, entries: list[PlaylistEntry], kind: Kind) -> None:
         added, duplicates, downloaded = self.add_to_queue(
@@ -793,14 +794,19 @@ class App(ctk.CTk):
         self.last_file = None
         self._show_folder()
 
-    def _save_window(self) -> None:
-        scale = self._get_window_scaling()
-        size = round(self.winfo_width() / scale), round(self.winfo_height() / scale)
-        self.settings = remember_window(self.settings, self.state(), size)
+    def _save_settings(self) -> None:
         try:
             save_config(self.settings)
         except OSError:
             log.exception("não foi possível salvar o tamanho da janela")
+
+    def _save_window(self) -> None:
+        self.settings = remember_window(self.settings, self.state(), app_size(self))
+        self._save_settings()
+
+    def _save_playlist_window(self, state: str, size: tuple[int, int]) -> None:
+        self.settings = remember_playlist(self.settings, state, size)
+        self._save_settings()
 
     def _on_close(self) -> None:
         if self.jobs:

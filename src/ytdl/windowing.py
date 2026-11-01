@@ -12,6 +12,12 @@ def center_geometry(win_w: int, win_h: int, screen_w: int, screen_h: int) -> tup
     return w, h, max((screen_w - w) // 2, 0), max((screen_h - h) // 2, 0)
 
 
+def app_size(win) -> tuple[int, int]:
+    """Tamanho atual da janela no tamanho do app (o mesmo que center_on_screen recebe)."""
+    scale = win._get_window_scaling()
+    return round(win.winfo_width() / scale), round(win.winfo_height() / scale)
+
+
 def center_on_screen(win, width: int | None = None, height: int | None = None) -> None:
     """width/height no tamanho do app (antes da escala do Windows); sem eles, usa o tamanho pedido pela janela."""
     win.update_idletasks()
