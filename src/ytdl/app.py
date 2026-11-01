@@ -181,7 +181,8 @@ class App(ctk.CTk):
         self.kind_switch.grid(row=0, column=2)
 
         self.queue_view = QueueView(self, on_toggle=self._on_toggle, on_kind=self._on_item_kind,
-                                    on_remove=self._on_remove, on_open=self._on_open_item)
+                                    on_remove=self._on_remove, on_open=self._on_open_item,
+                                    on_cancel=self._on_cancel_item)
         self.queue_view.grid(row=6, column=0, sticky="nsew", **pad)
         self.grid_rowconfigure(6, weight=1)
 
@@ -554,6 +555,11 @@ class App(ctk.CTk):
         item = self.model.remove(item_id)
         if item and item.id in self.jobs:
             self.jobs[item.id][0].cancel()
+        self._render_queue()
+
+    def _on_cancel_item(self, item_id: int) -> None:
+        if self.model.cancel(item_id) and item_id in self.jobs:
+            self.jobs[item_id][0].cancel()
         self._render_queue()
 
     def _on_open_item(self, item_id: int) -> None:

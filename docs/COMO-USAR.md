@@ -81,6 +81,7 @@ A fila baixa **vários vídeos ao mesmo tempo**, na ordem: enquanto um converte,
 | **✔ Concluído** | Pronto: clique para abrir a pasta |
 | **Erro: …** | Não deu certo (o motivo aparece escrito). Os outros vídeos continuam |
 
+- **Botão direito** em um vídeo da fila: seleciona e mostra **Cancelar** (o vídeo fica na lista como *Cancelado*) e **Remover da lista**.
 - **✕** remove o vídeo da fila (se estiver baixando, cancela).
 - **Cancelar tudo** cancela o que está baixando e o que está aguardando. Os itens *Em revisão* continuam.
 - **Limpar finalizados** tira da lista os concluídos, os com erro e os cancelados.

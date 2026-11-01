@@ -1,5 +1,10 @@
 # Novidades
 
+## 1.3.3 (01/11/2026)
+
+- **Botão direito na fila**: selecione um vídeo e escolha **Cancelar** (ou **Cancelar download**) ou **Remover da lista**. A fila continua com os próximos.
+- **Corrigido:** o botão **✕** de cada linha ficava cortado na borda da lista.
+
 ## 1.3.2 (01/11/2026)
 
 - **A janela da playlist também lembra o tamanho** e abre sempre no centro da tela.

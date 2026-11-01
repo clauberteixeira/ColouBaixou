@@ -169,3 +169,51 @@ def test_several_downloading_at_once():
     assert m.downloading() == [a, b]
     assert m.next_item() is c
     assert m.cancel_all() == [a, b] and c.status == Status.CANCELLED
+
+
+def test_cancel_waiting_item_lets_the_queue_move_on():
+    m = QueueModel()
+    first = m.add(A, "video", Status.QUEUED)
+    second = m.add(B, "video", Status.QUEUED)
+    assert m.cancel(first.id) is False
+    assert first.status == Status.CANCELLED
+    assert m.next_item() is second
+
+
+def test_cancel_item_in_review():
+    m = QueueModel()
+    item = m.add(A, "video", Status.REVIEW)
+    assert m.cancel(item.id) is False
+    assert item.status == Status.CANCELLED
+
+
+def test_cancel_download_waits_for_the_job_to_stop():
+    m = QueueModel()
+    item = m.add(A, "video", Status.QUEUED)
+    m.start(item.id)
+    assert m.cancel(item.id) is True
+    assert item.status == Status.DOWNLOADING and item.cancelling is True
+    m.mark_cancelled(item.id)
+    assert item.status == Status.CANCELLED
+
+
+def test_cancel_finished_item_changes_nothing():
+    m = QueueModel()
+    item = m.add(A, "video", Status.QUEUED)
+    m.start(item.id)
+    m.finish(item.id, Path("x.mp4"))
+    assert m.cancel(item.id) is False
+    assert item.status == Status.DONE
+
+
+def test_cancel_unknown_item_changes_nothing():
+    assert QueueModel().cancel(99) is False
+
+
+def test_requeue_forgets_a_pending_cancel():
+    m = QueueModel()
+    item = m.add(A, "video", Status.QUEUED)
+    m.start(item.id)
+    m.cancel(item.id)
+    m.requeue(item.id)
+    assert item.status == Status.QUEUED and item.cancelling is False

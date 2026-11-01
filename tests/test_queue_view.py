@@ -2,7 +2,7 @@ from pathlib import Path
 
 from ytdl.progress import Progress
 from ytdl.queue_model import Item, Status
-from ytdl.queue_view import display_title, row_check, row_tag, row_values, status_text
+from ytdl.queue_view import column_widths, display_title, menu_actions, row_check, row_tag, row_values, status_text
 
 MB = 1024 * 1024
 
@@ -55,3 +55,43 @@ def test_row_tag():
 
 def test_status_previously_downloaded():
     assert status_text(item(Status.DONE, path=Path("x"), previously=True)) == ("✔ Já baixado antes (clique para abrir)", False)
+
+
+def test_status_shows_cancelling_instead_of_progress():
+    p = Progress("download", 62.0, 48 * MB, 77 * MB, 5)
+    assert status_text(item(Status.DOWNLOADING, progress=p, cancelling=True)) == ("Cancelando…", False)
+
+
+def test_menu_for_waiting_items_offers_cancel_and_remove():
+    for status in (Status.QUEUED, Status.REVIEW):
+        assert menu_actions(item(status)) == [("Cancelar", "cancel"), ("Remover da lista", "remove")]
+
+
+def test_menu_for_download_in_progress_names_the_download():
+    assert menu_actions(item(Status.DOWNLOADING)) == [("Cancelar download", "cancel"), ("Remover da lista", "remove")]
+
+
+def test_menu_has_no_cancel_while_already_cancelling():
+    assert menu_actions(item(Status.DOWNLOADING, cancelling=True)) == [("Remover da lista", "remove")]
+
+
+def test_menu_for_finished_items_only_removes():
+    for status in (Status.DONE, Status.ERROR, Status.CANCELLED):
+        assert menu_actions(item(status)) == [("Remover da lista", "remove")]
+
+
+def test_columns_always_fill_the_list_exactly():
+    # se a soma passar da largura, a última coluna (o ✕) fica cortada
+    for total in (500, 588, 648, 788, 1048, 1900):
+        title, status = column_widths(total, 310)
+        assert title + status + 310 == total
+
+
+def test_status_column_has_room_for_the_progress_at_the_default_size():
+    title, status = column_widths(788, 310)
+    assert status == 270 and title == 208
+
+
+def test_columns_never_get_too_small_to_read():
+    title, status = column_widths(300, 310)
+    assert title >= 60 and status >= 60
