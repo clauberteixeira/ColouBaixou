@@ -18,7 +18,7 @@ from ytdl.playlist import MIX_LIMIT, PLAYLIST_LIMIT, Playlist, PlaylistEntry, th
 from ytdl.queue_model import Kind
 from ytdl.queue_view import style_tree
 from ytdl.tools import Tools
-from ytdl.windowing import center_on_screen
+from ytdl.windowing import app_size, center_on_screen
 
 POLL_MS = 100
 THUMB = (64, 36)
@@ -70,11 +70,14 @@ def ask_playlist(master) -> Literal["video", "playlist", None]:
 class PlaylistWindow(ctk.CTkToplevel):
     def __init__(self, master, tools: Tools, url: str, playlist_id: str, preselect: str | None,
                  default_kind: Kind, on_add: Callable[[list[PlaylistEntry], Kind], None],
-                 is_downloaded: Callable[[PlaylistEntry, Kind], bool] = lambda entry, kind: False):
+                 is_downloaded: Callable[[PlaylistEntry, Kind], bool] = lambda entry, kind: False,
+                 size: tuple[int, int] | None = None,
+                 on_close: Callable[[str, tuple[int, int]], None] = lambda state, size: None):
         super().__init__(master)
         self.title("Playlist")
         self.minsize(600, 440)
         self.on_add, self.preselect, self.is_downloaded = on_add, preselect, is_downloaded
+        self.on_close = on_close
         self.events: queue.Queue = queue.Queue()
         self.entries: dict[str, PlaylistEntry] = {}
         self.checked: dict[str, bool] = {}
@@ -126,9 +129,14 @@ class PlaylistWindow(ctk.CTkToplevel):
 
         threading.Thread(target=self._load, args=(tools, url, playlist_id), daemon=True).start()
         self.after(POLL_MS, self._poll)
-        center_on_screen(self, 760, 600)
+        center_on_screen(self, *(size or (760, 600)))
+        self.protocol("WM_DELETE_WINDOW", self.destroy)  # sem isso, o X fecha direto pelo Tk
         self.transient(master)
         self.after(50, self.grab_set)
+
+    def destroy(self) -> None:
+        self.on_close(self.state(), app_size(self))
+        super().destroy()
 
     # --- carregamento (threads só fazem events.put) ------------------------
 

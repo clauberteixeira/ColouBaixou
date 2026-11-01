@@ -1,5 +1,9 @@
 # Novidades
 
+## 1.3.2 (01/11/2026)
+
+- **A janela da playlist também lembra o tamanho** e abre sempre no centro da tela.
+
 ## 1.3.1 (01/11/2026)
 
 - **Corrigido:** em alguns computadores o programa abria com "Não foi possível preparar os componentes" mesmo com a internet funcionando. O motor de download agora vem dentro do instalador (que passa a ter cerca de 87 MB), e as conexões seguras funcionam também em computadores recém-formatados.

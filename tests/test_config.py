@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 
-from ytdl.config import Config, load_config, remember_window, save_config
+from ytdl.config import Config, load_config, remember_playlist, remember_window, save_config
 
 DEFAULT = Path.home() / "Downloads" / "YouTube"
 
@@ -61,3 +61,27 @@ def test_remember_window_keeps_the_normal_size_when_maximized():
 def test_remember_window_ignores_a_minimized_window():
     cfg = Config(base_dir=Path("x"), window_size=(900, 700), maximized=True)
     assert remember_window(cfg, "iconic", (160, 28)) == cfg
+
+
+def test_playlist_size_roundtrip(tmp_path):
+    p = tmp_path / "config.json"
+    save_config(Config(base_dir=tmp_path, playlist_size=(950, 700)), p)
+    assert load_config(p).playlist_size == (950, 700)
+
+
+def test_bad_playlist_size_is_ignored_and_keeps_the_folder(tmp_path):
+    p = tmp_path / "config.json"
+    p.write_text(json.dumps({"base_dir": str(tmp_path), "playlist_size": "grande"}), encoding="utf-8")
+    cfg = load_config(p)
+    assert cfg.base_dir == tmp_path and cfg.playlist_size is None
+
+
+def test_remember_playlist_saves_the_size_and_keeps_the_rest():
+    cfg = Config(base_dir=Path("x"), window_size=(900, 700), maximized=True)
+    assert remember_playlist(cfg, "normal", (950, 700)) == Config(Path("x"), (900, 700), True, (950, 700))
+
+
+def test_remember_playlist_ignores_a_hidden_window():
+    # minimizar a janela principal esconde a da playlist junto
+    cfg = Config(base_dir=Path("x"), playlist_size=(950, 700))
+    assert remember_playlist(cfg, "withdrawn", (1, 1)) == cfg
