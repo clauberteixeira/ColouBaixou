@@ -1,6 +1,6 @@
 import pytest
 
-from ytdl.errors import NO_SPACE, error_for_live, friendly_error
+from ytdl.errors import NO_SPACE, error_for_live, friendly_error, tools_error
 
 INTERNET = "Sem conexão com a internet. Verifique sua rede e tente de novo."
 PRIVATE = "Este vídeo é privado e não pode ser baixado."
@@ -35,3 +35,16 @@ def test_live_messages():
     assert error_for_live("is_upcoming").message == "Esta transmissão ainda não começou."
     assert error_for_live("not_live") is None
     assert error_for_live(None) is None
+
+
+@pytest.mark.parametrize("raw, expected", [
+    ("<urlopen error [SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed>", "data e a hora"),
+    ("[WinError 5] Acesso negado: 'yt-dlp.exe.part' -> 'yt-dlp.exe'", "antivírus"),
+    ("[WinError 32] O arquivo já está sendo usado por outro processo", "antivírus"),
+    ("[Errno 13] Permission denied: 'yt-dlp.exe'", "antivírus"),
+    ("FFmpeg não encontrado.", "Instale o ColouBaixô de novo"),
+    ("<urlopen error [Errno 11001] getaddrinfo failed>", "Verifique a internet"),
+    ("qualquer outra coisa", "Verifique a internet"),
+])
+def test_tools_error_says_what_to_do(raw, expected):
+    assert expected in tools_error(raw)

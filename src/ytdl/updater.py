@@ -3,13 +3,12 @@
 import json
 import logging
 import re
-import urllib.error
-import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable
 
 from ytdl.about import REPO
+from ytdl.net import urlopen
 
 log = logging.getLogger("ytdl")
 LATEST_API = f"https://api.github.com/repos/{REPO}/releases/latest"
@@ -31,7 +30,7 @@ def parse_version(tag: str) -> tuple[int, ...] | None:
     return tuple(int(p) for p in match.group(1).split(".")) if match else None
 
 
-def check_latest(current: str, opener=urllib.request.urlopen) -> Release | None:
+def check_latest(current: str, opener=urlopen) -> Release | None:
     """A versão publicada mais nova, se for maior que a atual; None em qualquer problema."""
     try:
         with opener(LATEST_API, timeout=15) as resp:
@@ -47,7 +46,7 @@ def check_latest(current: str, opener=urllib.request.urlopen) -> Release | None:
         return None
 
 
-def download_installer(release: Release, dest_dir: Path, opener=urllib.request.urlopen,
+def download_installer(release: Release, dest_dir: Path, opener=urlopen,
                        on_progress: Callable[[float], None] = lambda pct: None) -> Path:
     dest_dir.mkdir(parents=True, exist_ok=True)
     dest = dest_dir / release.installer_url.rsplit("/", 1)[-1]

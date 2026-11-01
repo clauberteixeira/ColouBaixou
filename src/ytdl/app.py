@@ -7,8 +7,8 @@ import queue
 import subprocess
 import threading
 import tkinter
-import urllib.request
 import webbrowser
+from dataclasses import replace
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 from tkinter import filedialog, messagebox
@@ -17,12 +17,14 @@ import customtkinter as ctk
 from PIL import Image
 
 from ytdl.about import APP_NAME, AUTHOR, AUTHOR_URL, REPO_URL, VERSION
-from ytdl.config import Config, load_config, save_config
+from ytdl.config import Config, load_config, remember_window, save_config
 from ytdl.downloader import Job, cleanup_stale_temp, fetch_info, fetch_oembed
-from ytdl.errors import BOT_BLOCK, INVALID_LINK, NO_NODE_WARNING, Cancelled, DownloadError, FriendlyError
+from ytdl.errors import (BOT_BLOCK, INVALID_LINK, NO_NODE_WARNING, Cancelled, DownloadError, FriendlyError,
+                         tools_error)
 from ytdl.hardware import max_parallel, prefers_fast_mode
 from ytdl.history import DownloadHistory, already_downloaded
 from ytdl.formats import VideoInfo, available_heights, format_duration, plan_video, quality_label, quality_options
+from ytdl.net import urlopen
 from ytdl.paths import app_data_dir, resource_dir
 from ytdl.playlist import PlaylistEntry, thumb_url
 from ytdl.playlist_window import PlaylistWindow, ask_playlist
@@ -59,12 +61,15 @@ class App(ctk.CTk):
         icon = resource_dir() / "assets" / "icon.ico"
         if icon.exists():
             self.after(250, lambda: self.iconbitmap(str(icon)))  # o CTk troca o ícone ao abrir
-        self.geometry("840x680")
+        self.settings = load_config()
+        width, height = self.settings.window_size or (840, 680)
+        self.geometry(f"{width}x{height}")
         self.minsize(640, 540)
-        center_on_screen(self, 840, 680)
+        center_on_screen(self, width, height)
+        if self.settings.maximized:
+            self.after(0, self.state, "zoomed")  # antes de abrir, o mainloop do CTk desfaz
 
         self.events: queue.Queue = queue.Queue()
-        self.settings = load_config()
         self.tools: Tools | None = None
         self.info: VideoInfo | None = None
         self.url: str | None = None  # link canônico do vídeo em prévia
@@ -209,6 +214,9 @@ class App(ctk.CTk):
     def _status(self, text: str, error: bool = False) -> None:
         self.status_label.configure(text=text, text_color=ERROR_COLOR if error else self._normal_text_color)
 
+    def _clear_status(self) -> None:
+        self._status("" if self.tools.js_runtime else NO_NODE_WARNING)
+
     def _set_buttons(self, enabled: bool) -> None:
         state = "normal" if enabled else "disabled"
         self.mp4_btn.configure(state=state)
@@ -253,7 +261,7 @@ class App(ctk.CTk):
 
     def _on_tools_ready(self, tools: Tools) -> None:
         self.tools = tools
-        self._status("" if tools.js_runtime else NO_NODE_WARNING)
+        self._clear_status()
         self._background(self._silent_update)
         self._background(self._detail_worker)
         self._autofill()
@@ -261,7 +269,7 @@ class App(ctk.CTk):
         self.pump_queue()
 
     def _on_tools_failed(self, message: str) -> None:
-        self._status("Não foi possível preparar os componentes. Verifique a internet e abra o programa de novo.", True)
+        self._status(tools_error(message), True)
 
     def _silent_update(self) -> None:
         try:
@@ -335,6 +343,7 @@ class App(ctk.CTk):
         # o instalador fecha este programa, atualiza e reabre (ver [Run] em installer/ColouBaixou.iss)
         subprocess.Popen(install_args(installer), close_fds=True,
                          creationflags=subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP)
+        self._save_window()
         self.destroy()
 
     # --- link e prévia ------------------------------------------------
@@ -389,7 +398,7 @@ class App(ctk.CTk):
                     return
         if not text:
             self._clear_preview()
-            self._status("")
+            self._clear_status()
         elif video_id is None and playlist_id:
             return
         elif video_id is None:
@@ -461,7 +470,7 @@ class App(ctk.CTk):
             self.thumb_label.configure(image=None)
         self.preview.grid()
         self._set_buttons(True)
-        self._status("" if self.tools.js_runtime else NO_NODE_WARNING)
+        self._clear_status()
 
     def _on_preview_failed(self, payload) -> None:
         token, friendly = payload
@@ -761,7 +770,7 @@ class App(ctk.CTk):
         chosen = filedialog.askdirectory(parent=self, initialdir=self.settings.base_dir,
                                          title="Escolha a pasta onde salvar")
         if chosen:
-            config = Config(base_dir=Path(chosen))
+            config = replace(self.settings, base_dir=Path(chosen))
             save_config(config)
             self._on_settings_saved(config)
 
@@ -784,11 +793,21 @@ class App(ctk.CTk):
         self.last_file = None
         self._show_folder()
 
+    def _save_window(self) -> None:
+        scale = self._get_window_scaling()
+        size = round(self.winfo_width() / scale), round(self.winfo_height() / scale)
+        self.settings = remember_window(self.settings, self.state(), size)
+        try:
+            save_config(self.settings)
+        except OSError:
+            log.exception("não foi possível salvar o tamanho da janela")
+
     def _on_close(self) -> None:
         if self.jobs:
             if not messagebox.askyesno(APP_TITLE, "Há downloads em andamento. Fechar e cancelar?", parent=self):
                 return
             self._stop_all_jobs()
+        self._save_window()
         self.destroy()
 
 
@@ -809,7 +828,7 @@ def _download_image(url: str | None, size: tuple[int, int]) -> Image.Image | Non
     if not url:
         return None
     try:
-        with urllib.request.urlopen(url, timeout=15) as resp:
+        with urlopen(url, timeout=15) as resp:
             image = Image.open(io.BytesIO(resp.read())).convert("RGB")
         return image.resize(size, Image.LANCZOS)
     except Exception:

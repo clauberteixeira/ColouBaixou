@@ -4,12 +4,12 @@ import logging
 import os
 import shutil
 import subprocess
-import urllib.request
 import zipfile
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable
 
+from ytdl.net import urlopen
 from ytdl.paths import app_data_dir, resource_dir
 
 YTDLP_URL = "https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe"
@@ -57,14 +57,19 @@ def find_node() -> Path | None:
 
 
 def _urlretrieve(url: str, dest: Path) -> None:
-    with urllib.request.urlopen(url, timeout=60) as resp, open(dest, "wb") as out:
+    with urlopen(url, timeout=60) as resp, open(dest, "wb") as out:
         shutil.copyfileobj(resp, out)
 
 
-def ensure_ytdlp(bin_dir: Path, download: Callable[[str, Path], None] = _urlretrieve) -> Path:
+def ensure_ytdlp(bin_dir: Path, download: Callable[[str, Path], None] = _urlretrieve,
+                 bundled: Path | None = None) -> Path:
     exe = bin_dir / "yt-dlp.exe"
     if exe.exists():
         return exe
+    # vai junto no instalador: abrir o programa pela primeira vez não depende da internet
+    bundled = bundled or resource_dir() / "ytdlp" / "yt-dlp.exe"
+    if bundled.exists():
+        return bundled
     bin_dir.mkdir(parents=True, exist_ok=True)
     part = bin_dir / "yt-dlp.exe.part"
     try:

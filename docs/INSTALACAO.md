@@ -4,13 +4,13 @@
 
 Leva uns 2 minutos. Não precisa de senha de administrador.
 
-**Precisa de:** Windows 10 ou 11 (64 bits) e internet na primeira vez que abrir o programa.
+**Precisa de:** Windows 10 ou 11 (64 bits) e internet.
 
 ---
 
 ## 1. Baixe o instalador
 
-Entre em **[Releases](https://github.com/clauberteixeira/ColouBaixou/releases/latest)** e clique no arquivo **`ColouBaixou-Setup-….exe`** (cerca de 64 MB), na seção *Assets*.
+Entre em **[Releases](https://github.com/clauberteixeira/ColouBaixou/releases/latest)** e clique no arquivo **`ColouBaixou-Setup-….exe`** (cerca de 87 MB), na seção *Assets*.
 
 > Se alguém te passou o instalador por **pendrive**, copie para o computador e pule para o passo 3.
 
@@ -37,7 +37,7 @@ O programa fica instalado só para o seu usuário do Windows, em `C:\Users\<voc�
 
 ## 4. Primeira vez que abrir
 
-Na primeira vez, aparece **"Preparando componentes…"** por alguns segundos. O programa está baixando o motor de download e, se precisar, um componente extra (Deno). Isso só acontece uma vez, mas **precisa de internet**.
+Na primeira vez, aparece **"Preparando componentes…"** por alguns segundos. Se o computador precisar, o programa baixa um componente extra (Deno). Isso só acontece uma vez.
 
 Pronto! Agora veja **[como usar](COMO-USAR.md)**.
 
