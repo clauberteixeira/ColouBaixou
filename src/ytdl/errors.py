@@ -27,7 +27,8 @@ NO_NODE_WARNING = (
 )
 
 BOT_BLOCK = FriendlyError(
-    "O YouTube bloqueou temporariamente o download. Tente mais tarde ou atualize o programa.", True)
+    "O YouTube está recusando pedidos desta internet por um tempo (muitos vídeos seguidos). "
+    "Não é defeito do programa e atualizar não resolve: espere algumas horas e tente de novo.")
 
 # Ordem importa: a primeira regra que bater vence.
 RULES: list[tuple[tuple[str, ...], FriendlyError]] = [

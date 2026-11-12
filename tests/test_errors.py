@@ -7,7 +7,7 @@ PRIVATE = "Este vídeo é privado e não pode ser baixado."
 AGE = "Este vídeo tem restrição de idade e precisa de login. Isso não é suportado."
 MEMBERS = "Este vídeo é exclusivo para membros do canal e não pode ser baixado."
 UNAVAILABLE = "Este vídeo está indisponível ou foi removido."
-BOT = "O YouTube bloqueou temporariamente o download. Tente mais tarde ou atualize o programa."
+BOT = "O YouTube está recusando pedidos desta internet por um tempo (muitos vídeos seguidos). Não é defeito do programa e atualizar não resolve: espere algumas horas e tente de novo."
 GENERIC = "Não foi possível baixar este vídeo. Tente atualizar o programa."
 
 
@@ -22,7 +22,7 @@ GENERIC = "Não foi possível baixar este vídeo. Tente atualizar o programa."
     ("ERROR: [youtube] aaaaaaaaaaa: This video is unavailable", UNAVAILABLE, False),
     ("ERROR: unable to write data: [Errno 28] No space left on device", NO_SPACE.message, False),
     ("OSError: [WinError 112] Não há espaço suficiente no disco", NO_SPACE.message, False),
-    ("ERROR: [youtube] abc: Sign in to confirm you're not a bot.", BOT, True),
+    ("ERROR: [youtube] abc: Sign in to confirm you're not a bot.", BOT, False),
     ("ERROR: something weird happened", GENERIC, True),
 ])
 def test_friendly_error(output, message, update):

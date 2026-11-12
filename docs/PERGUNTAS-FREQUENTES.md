@@ -10,9 +10,9 @@ Não. Esse aviso aparece para programas novos que não têm uma assinatura digit
 
 Alguns antivírus desconfiam de programas novos feitos em Python, sem motivo real (é o chamado "falso positivo"). Se o instalador veio da [página oficial de Releases](https://github.com/clauberteixeira/ColouBaixou/releases), você pode liberar o programa no antivírus.
 
-### Apareceu "O YouTube bloqueou temporariamente os downloads".
+### Apareceu "O YouTube está recusando pedidos desta internet" (ou "bloqueou temporariamente").
 
-O YouTube limita quem faz muitos downloads seguidos da mesma internet. A fila **pausa sozinha**. Espere algumas horas e clique em **▶ Continuar fila**. Isso é raro com uso normal.
+O YouTube limita quem faz muitos downloads seguidos da mesma internet. A fila **pausa sozinha**. Espere algumas horas e clique em **▶ Continuar fila**. Atualizar o programa não resolve; é só esperar. Isso é raro com uso normal.
 
 ### O programa disse "Você já baixou este vídeo".
 
