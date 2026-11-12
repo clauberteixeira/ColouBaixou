@@ -164,3 +164,11 @@ def test_audio_clip_is_cut_exactly_while_converting_to_mp3():
     assert pair(a, "--download-sections") == "*60-91"
     assert pair(a, "--postprocessor-args") == "ExtractAudio+ffmpeg_i:-seek_timestamp 1 -ss 60 -t 30"
     assert "--download-sections" not in audio_args(T, "U", "251", TMP)
+
+
+def test_trim_end_keeps_everything_and_only_cuts_the_end():
+    from ytdl.commands import trim_end_args
+    a = trim_end_args(Path("ffmpeg.exe"), Path("in.mp3"), Path("out.mp3"), 55)
+    assert "-ss" not in a and pair(a, "-t") == "55" and pair(a, "-c") == "copy" and pair(a, "-map") == "0"
+    assert "-id3v2_version" in a
+    assert "-id3v2_version" not in trim_end_args(Path("ffmpeg.exe"), Path("in.mp4"), Path("out.mp4"), 55)

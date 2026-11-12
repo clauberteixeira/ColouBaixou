@@ -22,3 +22,18 @@ def test_split_and_join_hours_minutes_seconds():
     assert join_hms("0", "0", "90") == 90  # 90 segundos viram 1:30
     assert join_hms("0", "1a", "0") is None
     assert join_hms(" 0", "1 ", "5") == 65
+
+
+def test_range_typed_in_the_fields_is_validated_before_downloading():
+    import pytest
+    from ytdl.clip import check_range
+    assert check_range(59, 358, 443) == (59, 358)
+    assert check_range(59, 9999, 443) == (59, 443)  # fim depois do vídeo: vai até o final
+    with pytest.raises(ValueError, match="antes do fim"):
+        check_range(358, 59, 443)
+    with pytest.raises(ValueError, match="antes do fim"):
+        check_range(60, 60, 443)
+    with pytest.raises(ValueError, match="números"):
+        check_range(None, 60, 443)
+    with pytest.raises(ValueError, match="passa do fim do vídeo"):
+        check_range(500, 600, 443)
