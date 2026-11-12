@@ -6,6 +6,7 @@ import os
 import shutil
 import subprocess
 import threading
+import time
 import urllib.error
 import uuid
 from collections import deque
@@ -28,6 +29,7 @@ from ytdl.tools import NO_WINDOW, Tools, run_quiet
 log = logging.getLogger("ytdl")
 DELIVER_LOCK = threading.Lock()
 TAIL_LINES = 50
+INFO_MAX_AGE_S = 3 * 3600  # depois disso, consulta de novo
 
 
 class ProcessRunner:
@@ -140,7 +142,7 @@ class Job:
         with self._workdir() as tmp:
             tracker = DownloadTracker({plan.video.format_id: plan.video.size, plan.audio.format_id: plan.audio.size})
             self._announce_clip(clip)
-            self._run_ytdlp(video_args(self.tools, url, plan, tmp, clip), tracker)
+            self._run_ytdlp(self._source(video_args(self.tools, url, plan, tmp, clip), info, tmp), tracker)
             merged = tmp / ("media.mkv" if transcode else "media.mp4")
             self._require(merged)
             final = self._convert(merged, tmp / "final.mp4", plan, info.duration, clip) if transcode else merged
@@ -152,7 +154,8 @@ class Job:
         with self._workdir() as tmp:
             tracker = DownloadTracker({audio.format_id: audio.size})
             self._announce_clip(clip)
-            self._run_ytdlp(audio_args(self.tools, url, audio.format_id, tmp, clip), tracker)
+            self._run_ytdlp(self._source(audio_args(self.tools, url, audio.format_id, tmp, clip), info, tmp),
+                            tracker)
             mp3 = tmp / "media.mp3"
             self._require(mp3)
             return self._deliver(mp3, base_dir, "audio", info, clip)
@@ -220,6 +223,18 @@ class Job:
         rc, output = self._run(args, on_line)
         if rc != 0:
             raise DownloadError(friendly_error(output))
+
+    def _source(self, args: list[str], info: VideoInfo, tmp: Path) -> list[str]:
+        """Troca o link (último argumento) pela consulta já feita, se ela é recente.
+
+        Cada consulta conta para o YouTube; repetir a da prévia dobrava os pedidos e ajudava a
+        cair no bloqueio "not a bot". Os endereços dos arquivos valem algumas horas.
+        """
+        if not info.raw or time.time() - info.raw.get("epoch", 0) > INFO_MAX_AGE_S:
+            return args
+        path = tmp / "info.json"
+        path.write_text(json.dumps(info.raw), encoding="utf-8")
+        return args[:-1] + ["--load-info-json", str(path)]
 
     def _announce_clip(self, clip: Clip | None) -> None:
         """Baixando só o pedaço o yt-dlp não informa o andamento; avisa o que está acontecendo."""

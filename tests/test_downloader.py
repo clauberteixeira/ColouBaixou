@@ -268,3 +268,20 @@ def test_preview_download_keeps_the_light_copy(tmp_path):
 
 def test_parse_info_keeps_the_raw_data_for_the_preview():
     assert INFO.raw is DATA
+
+
+def test_download_reuses_a_recent_lookup_instead_of_asking_youtube_again(tmp_path):
+    import dataclasses
+    import time
+    fresh = dataclasses.replace(INFO, raw={"id": "abc", "epoch": int(time.time())})
+    job, log, _, _ = make_job(tmp_path, [([], 0, "media.mp3")])
+    job.run_audio(URL, fresh, tmp_path / "base")
+    assert URL not in log[0] and "--load-info-json" in log[0]
+
+
+def test_old_lookup_is_not_reused(tmp_path):
+    import dataclasses
+    old = dataclasses.replace(INFO, raw={"id": "abc", "epoch": 1})
+    job, log, _, _ = make_job(tmp_path, [([], 0, "media.mp3")])
+    job.run_audio(URL, old, tmp_path / "base")
+    assert log[0][-1] == URL and "--load-info-json" not in log[0]
