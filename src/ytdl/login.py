@@ -68,3 +68,17 @@ def open_in_firefox(url: str) -> bool:
         return False
     subprocess.Popen([str(exe), url])
     return True
+
+
+WINGET_FIREFOX = ["winget", "install", "--id", "Mozilla.Firefox.pt-BR", "-e", "--source", "winget",
+                  "--scope", "user", "--silent", "--accept-package-agreements", "--accept-source-agreements",
+                  "--disable-interactivity"]
+
+
+def install_firefox(run=subprocess.run) -> bool:
+    """Instala o Firefox em português só para este usuário (sem pedir administrador). True se deu certo."""
+    try:
+        result = run(WINGET_FIREFOX, capture_output=True, creationflags=subprocess.CREATE_NO_WINDOW, timeout=900)
+    except (OSError, subprocess.TimeoutExpired):  # Windows sem o winget
+        return False
+    return result.returncode == 0

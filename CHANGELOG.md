@@ -1,5 +1,9 @@
 # Novidades
 
+## 1.7.1 (12/11/2026)
+
+- **Login com a conta Google mais fácil:** o botão **Instalar o Firefox** instala sozinho (em português, sem pedir administrador) e já abre o login do Google. Quando a conta aparece, a opção liga sozinha, sem precisar clicar em Verificar.
+
 ## 1.7.0 (12/11/2026)
 
 - **Conta do YouTube (opcional):** em ⚙ Configurações, ligue *Usar a conta do YouTube aberta no Firefox*. Com login, o bloqueio "não sou um robô" praticamente some. A tela mostra se o Firefox está instalado e se a conta foi encontrada, com botões para baixar o Firefox e para entrar no YouTube. Use uma conta secundária.
