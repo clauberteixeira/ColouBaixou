@@ -3,6 +3,7 @@
 ## 1.6.2 (12/11/2026)
 
 - **Campos de hora, minuto e segundo** para o início e o fim do trecho, junto com a linha do tempo. Digitar move as alças; arrastar as alças atualiza os campos.
+- **Ritmo contra o bloqueio do YouTube:** as 3 primeiras consultas passam na hora; depois, uma a cada 20 segundos, com contagem na tela (*Aguardando 12 s*).
 - **Menos pedidos ao YouTube:** o download reaproveita a consulta feita na prévia, em vez de consultar de novo. Isso diminui a chance do bloqueio "não sou um robô".
 - **Aviso de bloqueio mais claro:** quando o YouTube recusa esta internet por um tempo, o aviso diz para esperar algumas horas e não sugere mais atualizar.
 

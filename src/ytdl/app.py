@@ -28,6 +28,7 @@ from ytdl.formats import VideoInfo, available_heights, format_duration, plan_vid
 from ytdl.net import urlopen
 from ytdl.paths import app_data_dir, resource_dir
 from ytdl.playlist import PlaylistEntry, thumb_url
+from ytdl.progress import Progress
 from ytdl.playlist_window import PlaylistWindow, ask_playlist
 from ytdl.queue_model import Kind, QueueModel, Status
 from ytdl.queue_view import KIND_LABEL, ROW_THUMB, QueueView
@@ -461,9 +462,13 @@ class App(ctk.CTk):
 
         def work():
             try:
-                info = fetch_info(self.tools, url)
+                info = fetch_info(self.tools, url,
+                                  on_wait=lambda s: self.events.put(("preview_wait", (token, s))),
+                                  cancelled=lambda: token != self._preview_token)  # colou outro link
                 image = _download_image(info.thumbnail_url, THUMB_SIZE)
                 self.events.put(("preview", (token, info, image)))
+            except Cancelled:
+                pass
             except DownloadError as exc:
                 self.events.put(("preview_failed", (token, exc.friendly)))
             except Exception:
@@ -472,6 +477,11 @@ class App(ctk.CTk):
                     "Não foi possível carregar este vídeo. Tente atualizar o programa.", True))))
 
         self._background(work)
+
+    def _on_preview_wait(self, payload) -> None:
+        token, seconds = payload
+        if token == self._preview_token:
+            self._status(f"Aguardando {seconds} s para consultar o YouTube (evita o bloqueio por excesso de pedidos)…")
 
     def _on_preview(self, payload) -> None:
         token, info, image = payload
@@ -675,7 +685,8 @@ class App(ctk.CTk):
             url = canonical_url(video_id)
             try:
                 if info is None:
-                    info = fetch_info(tools, url)
+                    info = fetch_info(tools, url, cancelled=lambda: job.cancelled, on_wait=lambda s: self.events.put(
+                        ("q_progress", (item_id, Progress("wait", None, None, None, s)))))
                     self.events.put(("q_info", (item_id, info)))
                 # barreira 3: agora com título e canal reais, o arquivo já existe?
                 existing = None if clip else already_downloaded(history, base, video_id, kind, info.channel, info.title)

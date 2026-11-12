@@ -67,3 +67,8 @@ def test_ffmpeg_negative_start_time_is_zero():
 def test_clip_download_says_what_is_happening():
     from ytdl.progress import Progress, describe
     assert describe(Progress("clip", None, None, None, None)) == "Baixando só o trecho…"
+
+
+def test_waiting_for_youtube_shows_the_countdown():
+    from ytdl.progress import Progress, describe
+    assert describe(Progress("wait", None, None, None, 12)) == "Aguardando 12 s (evita bloqueio do YouTube)"
