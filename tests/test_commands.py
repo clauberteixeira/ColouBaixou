@@ -143,3 +143,18 @@ def test_audio_args_clean_title_inside_mp3():
     triples = [tuple(a[i + 1:i + 4]) for i, x in enumerate(a) if x == "--replace-in-metadata"]
     assert triples == [("title", p, r) for p, r in TITLE_CLEANUPS]
     assert a[-1] == "U"
+
+
+def test_ffmpeg_clip_seeks_and_limits_length():
+    a = ffmpeg_args(Path("ffmpeg.exe"), SRC, DST, plan(tv=True, ta=True), "x264", clip=(5, 60))
+    assert a.index("-ss") < a.index("-i")
+    assert pair(a, "-ss") == "5" and pair(a, "-t") == "55"
+
+
+def test_cut_mp3_copies_the_part_with_cover_and_tags():
+    from ytdl.commands import cut_args
+    a = cut_args(Path("ffmpeg.exe"), Path("in.mp3"), Path("out.mp3"), (5, 60))
+    assert pair(a, "-ss") == "5" and pair(a, "-t") == "55"
+    assert a.index("-ss") < a.index("-i")
+    assert pair(a, "-map") == "0" and pair(a, "-c") == "copy"
+    assert a[-1] == "out.mp3"

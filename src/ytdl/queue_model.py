@@ -6,6 +6,7 @@ from enum import Enum, auto
 from pathlib import Path
 from typing import Literal
 
+from ytdl.clip import Clip
 from ytdl.formats import VideoInfo
 from ytdl.progress import Progress
 
@@ -38,6 +39,7 @@ class Item:
     duration: int | None = None
     info: VideoInfo | None = None
     res: int | None = None  # só vem da prévia
+    clip: Clip | None = None  # só um trecho (só vem da prévia)
     progress: Progress | None = None
     error: str | None = None
     path: Path | None = None
@@ -52,16 +54,16 @@ class QueueModel:
         self._ids = itertools.count(1)
         self._release = itertools.count(1)
 
-    def _is_duplicate(self, video_id: str, kind: Kind, ignore: Item | None = None) -> bool:
-        return any(i is not ignore and i.video_id == video_id and i.kind == kind and i.status in ACTIVE
-                   for i in self.items)
+    def _is_duplicate(self, video_id: str, kind: Kind, clip: Clip | None = None, ignore: Item | None = None) -> bool:
+        return any(i is not ignore and i.video_id == video_id and i.kind == kind and i.clip == clip
+                   and i.status in ACTIVE for i in self.items)
 
     def _queue(self, item: Item) -> None:
         item.status = Status.QUEUED
         item.released_seq = next(self._release)
 
     def add(self, video_id: str, kind: Kind, status: Status, **fields) -> Item | None:
-        if self._is_duplicate(video_id, kind):
+        if self._is_duplicate(video_id, kind, fields.get("clip")):
             return None
         item = Item(id=next(self._ids), video_id=video_id, kind=kind, status=Status.REVIEW, **fields)
         if status == Status.QUEUED:
@@ -74,7 +76,7 @@ class QueueModel:
 
     def set_kind(self, item_id: int, kind: Kind) -> bool:
         item = self.get(item_id)
-        if not item or item.status not in EDITABLE or self._is_duplicate(item.video_id, kind, ignore=item):
+        if not item or item.status not in EDITABLE or self._is_duplicate(item.video_id, kind, item.clip, ignore=item):
             return False
         item.kind = kind
         return True

@@ -126,3 +126,7 @@ def test_word_longer_than_the_column_is_broken():
 
 def test_very_narrow_column_does_not_hang():
     assert wrap_cell("abcdef", 0, len)
+
+
+def test_display_title_shows_the_clip():
+    assert display_title(item(Status.QUEUED, title="Música", clip=(5, 60))) == "Música ✂ 0:05–1:00"

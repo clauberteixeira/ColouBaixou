@@ -12,6 +12,7 @@ from typing import Callable
 import customtkinter as ctk
 from PIL import Image, ImageTk
 
+from ytdl.clip import clip_label
 from ytdl.images import CHECK_SIZE, GAP, Check, row_image
 from ytdl.progress import describe
 from ytdl.queue_model import ACTIVE, EDITABLE, FINISHED, Item, Status
@@ -51,7 +52,7 @@ def display_title(item: Item) -> str:
     if not item.title:
         link = f"youtu.be/{item.video_id}"
         return link if item.status in FINISHED else f"{link} (carregando…)"
-    return item.title
+    return f"{item.title} ✂ {clip_label(item.clip)}" if item.clip else item.title
 
 
 def row_values(item: Item) -> tuple[str, ...]:

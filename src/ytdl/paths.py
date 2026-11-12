@@ -50,19 +50,20 @@ def unique_path(path: Path) -> Path:
     return candidate
 
 
-def planned_path(base: Path, kind: Literal["video", "audio"], channel: str, title: str) -> Path:
+def planned_path(base: Path, kind: Literal["video", "audio"], channel: str, title: str, suffix: str = "") -> Path:
     """Caminho onde o arquivo vai ficar (sem criar pastas nem resolver nomes repetidos)."""
     folder = base / SUBFOLDER[kind] / sanitize_component(channel)
     ext = EXTENSION[kind]
     # espaço para o nome do arquivo, reservando " (99)" para colisões
-    room = MAX_PATH_UNITS - _utf16_len(str(folder)) - 1 - len(ext) - 5
-    name = sanitize_component(title)
+    room = MAX_PATH_UNITS - _utf16_len(str(folder)) - 1 - len(ext) - 5 - _utf16_len(suffix)
+    name = sanitize_component(title, max_len=80 - len(suffix))  # o sufixo nunca é cortado
     while _utf16_len(name) > max(room, 10) and len(name) > 1:
         name = sanitize_component(name[:-1])
-    return folder / f"{name}{ext}"
+    return folder / f"{name}{suffix}{ext}"
 
 
-def destination_path(base: Path, kind: Literal["video", "audio"], channel: str, title: str) -> Path:
-    path = planned_path(base, kind, channel, title)
+def destination_path(base: Path, kind: Literal["video", "audio"], channel: str, title: str,
+                     suffix: str = "") -> Path:
+    path = planned_path(base, kind, channel, title, suffix)
     path.parent.mkdir(parents=True, exist_ok=True)
     return unique_path(path)

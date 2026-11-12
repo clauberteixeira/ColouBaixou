@@ -52,3 +52,8 @@ def test_planned_path_has_no_side_effects(tmp_path):
     p = planned_path(tmp_path, "audio", "Canal: X", "Música?")
     assert p == tmp_path / "Áudios" / "Canal X" / "Música.mp3"
     assert not p.parent.exists()
+
+
+def test_suffix_survives_long_titles(tmp_path):
+    path = planned_path(tmp_path, "audio", "Canal", "x" * 200, suffix=" (trecho 0m05s a 1m00s)")
+    assert path.name.endswith("x (trecho 0m05s a 1m00s).mp3")
