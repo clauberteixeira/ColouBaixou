@@ -235,13 +235,14 @@ def test_two_jobs_finishing_together_never_overwrite(tmp_path):
     assert len(list((base / "Áudios" / "Canal Teste").glob("*.mp3"))) == 4
 
 
-def test_audio_clip_is_cut_and_named(tmp_path):
+def test_audio_clip_downloads_only_the_part_and_is_named(tmp_path):
     base = tmp_path / "base"
-    job, log, _, _ = make_job(tmp_path, [([], 0, "media.mp3"), ([], 0, "clip.mp3")])
+    job, log, _, events = make_job(tmp_path, [([], 0, "media.mp3")])
     result = job.run_audio(URL, INFO, base, clip=(5, 60))
     assert result.name == "Vídeo de Teste (trecho 0m05s a 1m00s).mp3"
     assert result.exists()
-    assert "-ss" in log[1] and "copy" in log[1]
+    assert len(log) == 1 and "--download-sections" in log[0]
+    assert events[0].stage == "clip"
     assert tmp_empty(tmp_path)
 
 
@@ -249,6 +250,7 @@ def test_video_clip_always_converts_and_reports_clip_progress(tmp_path):
     job, log, _, events = make_job(tmp_path, [([], 0, "media.mkv"), (["out_time_us=27500000"], 0, "final.mp4")])
     result = job.run_video(URL, INFO, plan_video(INFO, 1080), tmp_path / "base", clip=(5, 60))
     assert result.name == "Vídeo de Teste (trecho 0m05s a 1m00s).mp4"
+    assert "--download-sections" in log[0]
     assert "-ss" in log[1] and "h264_nvenc" in log[1]
     assert any(e.stage == "convert" and e.percent == pytest.approx(50.0) for e in events)
 

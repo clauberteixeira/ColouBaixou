@@ -62,3 +62,8 @@ def test_describe_convert_and_mp3():
 
 def test_ffmpeg_negative_start_time_is_zero():
     assert parse_ffmpeg_line("out_time_us=-33333", 60) == 0.0
+
+
+def test_clip_download_says_what_is_happening():
+    from ytdl.progress import Progress, describe
+    assert describe(Progress("clip", None, None, None, None)) == "Baixando só o trecho…"

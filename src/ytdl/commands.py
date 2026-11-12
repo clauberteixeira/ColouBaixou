@@ -50,9 +50,19 @@ def info_args(t: Tools, url: str) -> list[str]:
     return base_args(t) + ["-J", url]
 
 
-def video_args(t: Tools, url: str, plan: VideoPlan, tmp: Path) -> list[str]:
+def _sections(clip: Clip | None) -> list[str]:
+    """Baixa só o pedaço (+1 s de folga) mantendo os tempos do vídeo original (-copyts).
+
+    O pedaço começa no quadro-chave antes do início; o corte exato vem depois, na conversão.
+    """
+    if not clip:
+        return []
+    return ["--download-sections", f"*{clip[0]}-{clip[1] + 1}", "--downloader-args", "ffmpeg_o:-copyts"]
+
+
+def video_args(t: Tools, url: str, plan: VideoPlan, tmp: Path, clip: Clip | None = None) -> list[str]:
     container = "mkv" if plan.transcode_video or plan.transcode_audio else "mp4"
-    return base_args(t) + [
+    return base_args(t) + _sections(clip) + [
         "-f", f"{plan.video.format_id}+{plan.audio.format_id}",
         "--merge-output-format", container,
         "-o", str(tmp / OUTPUT_NAME), url,
@@ -67,8 +77,10 @@ def preview_args(t: Tools, info_json: Path, tmp: Path) -> list[str]:
     ]
 
 
-def audio_args(t: Tools, url: str, audio_format_id: str, tmp: Path) -> list[str]:
-    return base_args(t) + [
+def audio_args(t: Tools, url: str, audio_format_id: str, tmp: Path, clip: Clip | None = None) -> list[str]:
+    # trecho: o corte exato acontece na própria conversão para MP3
+    cut = ["--postprocessor-args", "ExtractAudio+ffmpeg_i:" + " ".join(_seek(clip))] if clip else []
+    return base_args(t) + _sections(clip) + cut + [
         "-f", audio_format_id, "-x", "--audio-format", "mp3", "--audio-quality", "320K",
         "--embed-thumbnail", "--embed-metadata", "--parse-metadata", "%(channel)s:%(artist)s",
         *_title_cleanups(),
@@ -97,8 +109,8 @@ def _filters(plan: VideoPlan) -> str:
 
 
 def _seek(clip: Clip | None) -> list[str]:
-    """Antes do -i: o ffmpeg pula direto para o início e para no fim do trecho."""
-    return ["-ss", str(clip[0]), "-t", str(clip[1] - clip[0])] if clip else []
+    """Antes do -i: pula para o início e para no fim do trecho, nos tempos do vídeo original."""
+    return ["-seek_timestamp", "1", "-ss", str(clip[0]), "-t", str(clip[1] - clip[0])] if clip else []
 
 
 def ffmpeg_args(ffmpeg: Path, src: Path, dst: Path, plan: VideoPlan,
@@ -112,8 +124,3 @@ def ffmpeg_args(ffmpeg: Path, src: Path, dst: Path, plan: VideoPlan,
     args += ["-c:a", "aac", "-b:a", "192k"] if plan.transcode_audio else ["-c:a", "copy"]
     return args + ["-movflags", "+faststart", str(dst)]
 
-
-def cut_args(ffmpeg: Path, src: Path, dst: Path, clip: Clip) -> list[str]:
-    """Corta o MP3 sem converter de novo; mantém capa e etiquetas."""
-    return [str(ffmpeg), "-y", "-hide_banner", "-nostats", *_seek(clip), "-i", str(src),
-            "-map", "0", "-c", "copy", "-id3v2_version", "3", str(dst)]

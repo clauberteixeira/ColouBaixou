@@ -20,7 +20,7 @@ class DlLine:
 
 @dataclass(frozen=True)
 class Progress:
-    stage: Literal["download", "convert", "mp3"]
+    stage: Literal["download", "convert", "mp3", "clip"]
     percent: float | None  # 0–100
     downloaded: int | None
     total: int | None
@@ -84,6 +84,8 @@ def describe(p: Progress) -> str:
     """Texto de status para a janela."""
     if p.stage == "mp3":
         return "Convertendo para MP3…"
+    if p.stage == "clip":
+        return "Baixando só o trecho…"
     if p.stage == "convert":
         return f"Convertendo para formato compatível… {round(p.percent or 0)}% (pode levar alguns minutos)"
     done = round((p.downloaded or 0) / MB)

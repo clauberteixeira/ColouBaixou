@@ -1,5 +1,12 @@
 # Novidades
 
+## 1.6.1 (12/11/2026)
+
+- **Corrigido:** no MP3, o trecho não parava no fim escolhido. Agora MP3 e MP4 cortam exatamente no início e no fim.
+- **Corrigido:** a tela travava ("Não está respondendo") enquanto um trecho baixava.
+- **Baixa só o pedaço escolhido**, não o vídeo inteiro: trechos ficam prontos bem mais rápido.
+- Ao clicar em baixar, a janela do trecho fecha e o andamento aparece na fila (*Baixando só o trecho…*).
+
 ## 1.6.0 (12/11/2026)
 
 - **Escolher trecho com linha do tempo e vídeo**: o botão **✂ Baixar só um trecho…** abre uma janela com o vídeo. Arraste as alças da linha do tempo até o início e o fim, assista com som no ▶ e baixe o trecho em MP4 ou MP3. Substitui os campos de digitar o tempo.

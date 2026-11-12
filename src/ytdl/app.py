@@ -870,12 +870,21 @@ class App(ctk.CTk):
 
 
 def drain_events(q: queue.Queue, handle) -> None:
-    """Processa todos os eventos pendentes; um handler com erro não derruba os demais."""
-    while True:
+    """Processa os eventos que já chegaram; um handler com erro não derruba os demais.
+
+    Os que chegam enquanto isso ficam para a próxima volta, e do progresso de cada download só
+    o último conta: o yt-dlp manda ~120 por segundo e, sem isso, a tela parava de responder.
+    """
+    batch = []
+    for _ in range(q.qsize()):
         try:
-            kind, payload = q.get_nowait()
+            batch.append(q.get_nowait())
         except queue.Empty:
-            return
+            break
+    latest = {payload[0]: i for i, (kind, payload) in enumerate(batch) if kind == "q_progress"}
+    for i, (kind, payload) in enumerate(batch):
+        if kind == "q_progress" and latest[payload[0]] != i:
+            continue
         try:
             handle(kind, payload)
         except Exception:

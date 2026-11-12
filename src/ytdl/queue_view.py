@@ -126,6 +126,22 @@ def wrap_cell(text: str, width: int, measure: Callable[[str], int]) -> str:
     return f"{first}\n{second}"
 
 
+class CachedWrap:
+    """wrap_cell que lembra o resultado: medir texto com símbolos (✂) chega a levar 4 ms por medida."""
+
+    def __init__(self, measure: Callable[[str], int]):
+        self.measure = measure
+        self._done: dict[tuple[str, int], str] = {}
+
+    def __call__(self, text: str, width: int) -> str:
+        key = (text, width)
+        if key not in self._done:
+            if len(self._done) > 5000:  # o texto do progresso muda sempre; não deixa crescer sem fim
+                self._done.clear()
+            self._done[key] = wrap_cell(text, width, self.measure)
+        return self._done[key]
+
+
 def _colors() -> tuple[str, str, str, str]:
     """Fundo, texto, cabeçalho e seleção, seguindo o tema claro/escuro do app."""
     if ctk.get_appearance_mode() == "Dark":
@@ -160,6 +176,7 @@ class QueueView(ctk.CTkFrame):
         self.thumbs: dict[str, Image.Image] = {}
         self._images: dict[tuple, ImageTk.PhotoImage] = {}  # (video_id, caixinha) → imagem pronta
         self._measure = tkfont.Font(family=FONT[0], size=FONT[1]).measure
+        self._wrap = CachedWrap(self._measure)
         self._wrap_after: str | None = None
 
         self.tree = ttk.Treeview(self, columns=COLUMNS, show="tree headings", style=style_tree(ROW_THUMB[1] + 8),
@@ -203,7 +220,7 @@ class QueueView(ctk.CTkFrame):
 
     def _wrapped(self, item: Item) -> tuple[str, ...]:
         def fit(column: str, text: str) -> str:
-            return wrap_cell(text, self.tree.column(column, "width") - CELL_PADDING, self._measure)
+            return self._wrap(text, self.tree.column(column, "width") - CELL_PADDING)
 
         title, channel, kind, status, remove = row_values(item)
         return fit("title", title), fit("channel", channel), kind, fit("status", status), remove
