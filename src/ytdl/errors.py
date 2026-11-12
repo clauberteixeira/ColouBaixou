@@ -28,7 +28,9 @@ NO_NODE_WARNING = (
 
 BOT_BLOCK = FriendlyError(
     "O YouTube está recusando pedidos desta internet por um tempo (muitos vídeos seguidos). "
-    "Não é defeito do programa e atualizar não resolve: espere algumas horas e tente de novo.")
+    "Espere algumas horas ou, para evitar, ligue a conta do YouTube em ⚙ Configurações.")
+LOGIN_PROBLEM = FriendlyError(
+    "Não deu para usar a conta do YouTube do Firefox. Abra ⚙ Configurações e confira a conta do YouTube.")
 
 # Ordem importa: a primeira regra que bater vence.
 RULES: list[tuple[tuple[str, ...], FriendlyError]] = [
@@ -44,6 +46,7 @@ RULES: list[tuple[tuple[str, ...], FriendlyError]] = [
      FriendlyError("Este vídeo está indisponível ou foi removido.")),
     (("no space left", "errno 28", "winerror 112"),
      NO_SPACE),
+    (("cookies database", "cookies are no longer valid", "failed to decrypt"), LOGIN_PROBLEM),
     (("not a bot",), BOT_BLOCK),
 ]
 GENERIC = FriendlyError("Não foi possível baixar este vídeo. Tente atualizar o programa.", True)

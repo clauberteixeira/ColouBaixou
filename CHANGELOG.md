@@ -1,5 +1,9 @@
 # Novidades
 
+## 1.7.0 (12/11/2026)
+
+- **Conta do YouTube (opcional):** em ⚙ Configurações, ligue *Usar a conta do YouTube aberta no Firefox*. Com login, o bloqueio "não sou um robô" praticamente some. A tela mostra se o Firefox está instalado e se a conta foi encontrada, com botões para baixar o Firefox e para entrar no YouTube. Use uma conta secundária.
+
 ## 1.6.3 (12/11/2026)
 
 - **Corrigido:** o fim digitado nos campos era ignorado quando a pessoa clicava em baixar sem apertar Enter, e o trecho ia até o fim da música.

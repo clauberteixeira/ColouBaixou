@@ -7,7 +7,8 @@ PRIVATE = "Este vídeo é privado e não pode ser baixado."
 AGE = "Este vídeo tem restrição de idade e precisa de login. Isso não é suportado."
 MEMBERS = "Este vídeo é exclusivo para membros do canal e não pode ser baixado."
 UNAVAILABLE = "Este vídeo está indisponível ou foi removido."
-BOT = "O YouTube está recusando pedidos desta internet por um tempo (muitos vídeos seguidos). Não é defeito do programa e atualizar não resolve: espere algumas horas e tente de novo."
+BOT = ("O YouTube está recusando pedidos desta internet por um tempo (muitos vídeos seguidos). "
+       "Espere algumas horas ou, para evitar, ligue a conta do YouTube em ⚙ Configurações.")
 GENERIC = "Não foi possível baixar este vídeo. Tente atualizar o programa."
 
 
@@ -48,3 +49,9 @@ def test_live_messages():
 ])
 def test_tools_error_says_what_to_do(raw, expected):
     assert expected in tools_error(raw)
+
+
+def test_missing_firefox_login_points_to_settings():
+    for output in ("ERROR: could not find firefox cookies database in the profile",
+                   "ERROR: [youtube] abc: The provided YouTube account cookies are no longer valid."):
+        assert "Configurações" in friendly_error(output).message
