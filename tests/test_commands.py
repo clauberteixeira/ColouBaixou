@@ -158,3 +158,11 @@ def test_cut_mp3_copies_the_part_with_cover_and_tags():
     assert a.index("-ss") < a.index("-i")
     assert pair(a, "-map") == "0" and pair(a, "-c") == "copy"
     assert a[-1] == "out.mp3"
+
+
+def test_preview_reuses_the_info_and_picks_a_light_copy():
+    from ytdl.commands import preview_args
+    a = preview_args(T, Path("info.json"), TMP)
+    assert pair(a, "--load-info-json") == "info.json"  # não consulta o YouTube de novo
+    assert "240" in pair(a, "-f")
+    assert pair(a, "-o") == str(TMP / "preview.%(ext)s")

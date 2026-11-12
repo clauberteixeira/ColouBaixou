@@ -41,15 +41,19 @@ Para ocupar menos espaço, escolha uma qualidade menor (720p, 480p…).
 
 ## Baixar só um trecho
 
-Na prévia, a linha **✂ Baixar só o trecho de … até …** já vem com o vídeo inteiro (de `0:00` até o fim). Para baixar só uma parte, mude os tempos e clique em **⬇ MP4** ou **♪ MP3**:
+1. Cole o link. Na prévia, clique em **✂ Baixar só um trecho…**.
+2. Abre a janela **Escolher trecho**, com o vídeo. Em poucos segundos ele fica pronto para assistir.
+3. **Arraste as alças azuis** da linha do tempo: a da esquerda marca o início, a da direita marca o fim. Enquanto arrasta, o vídeo mostra aquele ponto.
+4. Clique em **▶** para assistir e ouvir o trecho escolhido. Clicar na linha do tempo pula para aquele ponto.
+5. Clique em **⬇ Baixar trecho em MP4** ou **♪ Baixar trecho em MP3**.
 
-- **De 1:30 até 2:45**: só esse pedaço.
-- **De 1:30 até o fim**: mude só o primeiro tempo.
-- **Do começo até 2:00**: mude só o segundo tempo.
+Dicas:
 
-Escreva os tempos como minutos:segundos (`1:30`) ou horas:minutos:segundos (`1:02:30`). O arquivo leva o trecho no nome, por exemplo `Música (trecho 1m30s a 2m45s).mp3`, e na fila aparece `✂ 1:30–2:45`.
-
-Pode baixar quantos trechos quiser do mesmo vídeo: cada um vira um arquivo separado. O programa baixa o vídeo e corta no ponto exato, por isso o trecho de um vídeo longo demora quase o mesmo que o vídeo inteiro.
+- Para ajuste fino, use as setas **← →** do teclado: mexem 1 segundo a última alça usada. A barra de **espaço** toca e pausa.
+- **De um ponto até o fim:** arraste só a alça do início.
+- Dá para baixar vários trechos do mesmo vídeo sem fechar a janela: cada um vira um arquivo, com o trecho no nome, por exemplo `Música (trecho 1m30s a 2m45s).mp3`. Na fila aparece `✂ 1:30–2:45`.
+- Vídeos com mais de 30 minutos não têm a prévia com imagem e som, mas a linha do tempo funciona.
+- O programa baixa o vídeo e corta no ponto exato, por isso o trecho de um vídeo longo demora quase o mesmo que o vídeo inteiro.
 
 ## Baixar vários vídeos de uma vez
 

@@ -1,6 +1,6 @@
 """Leitura do `yt-dlp -J` e escolha do que baixar."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 CAP = 2160
 
@@ -33,6 +33,7 @@ class VideoInfo:
     live_status: str | None
     video_formats: tuple[Fmt, ...]
     audio_formats: tuple[Fmt, ...]
+    raw: dict | None = field(default=None, compare=False, repr=False)  # para a prévia do trecho
 
 
 @dataclass(frozen=True)
@@ -85,6 +86,7 @@ def parse_info(data: dict) -> VideoInfo:
         live_status=data.get("live_status"),
         video_formats=tuple(video),
         audio_formats=tuple(audio),
+        raw=data,
     )
 
 

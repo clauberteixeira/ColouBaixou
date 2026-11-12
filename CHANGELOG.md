@@ -1,5 +1,9 @@
 # Novidades
 
+## 1.6.0 (12/11/2026)
+
+- **Escolher trecho com linha do tempo e vídeo**: o botão **✂ Baixar só um trecho…** abre uma janela com o vídeo. Arraste as alças da linha do tempo até o início e o fim, assista com som no ▶ e baixe o trecho em MP4 ou MP3. Substitui os campos de digitar o tempo.
+
 ## 1.5.0 (12/11/2026)
 
 - **Baixar só um trecho**: na prévia, escolha de que tempo até que tempo baixar (ex.: de 1:30 até 2:45, ou de 1:30 até o fim). Funciona em MP4 e MP3, com corte no ponto exato. O arquivo leva o trecho no nome.

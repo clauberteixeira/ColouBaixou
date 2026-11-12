@@ -251,3 +251,18 @@ def test_video_clip_always_converts_and_reports_clip_progress(tmp_path):
     assert result.name == "Vídeo de Teste (trecho 0m05s a 1m00s).mp4"
     assert "-ss" in log[1] and "h264_nvenc" in log[1]
     assert any(e.stage == "convert" and e.percent == pytest.approx(50.0) for e in events)
+
+
+def test_preview_download_keeps_the_light_copy(tmp_path):
+    import dataclasses
+    info = dataclasses.replace(INFO, raw={"id": "abc"})
+    dest = tmp_path / "prev"
+    job, log, _, events = make_job(tmp_path, [(["[dl]5|10|NA|1|160"], 0, "preview.mkv")])
+    result = job.run_preview(info, dest)
+    assert result == dest / "preview.mkv" and result.exists()
+    assert json.loads((dest / "info.json").read_text("utf-8")) == {"id": "abc"}
+    assert events[-1].percent == 50
+
+
+def test_parse_info_keeps_the_raw_data_for_the_preview():
+    assert INFO.raw is DATA

@@ -15,7 +15,7 @@ from pathlib import Path
 from typing import Callable, Iterator
 
 from ytdl.clip import Clip, clip_suffix
-from ytdl.commands import audio_args, cut_args, ffmpeg_args, info_args, playlist_args, video_args
+from ytdl.commands import audio_args, cut_args, ffmpeg_args, info_args, playlist_args, preview_args, video_args
 from ytdl.errors import NO_SPACE, Cancelled, DownloadError, error_for_live, friendly_error
 from ytdl.formats import VideoInfo, VideoPlan, available_heights, best_audio, parse_info
 from ytdl.net import urlopen
@@ -149,6 +149,17 @@ class Job:
             if clip:
                 mp3 = self._cut(mp3, tmp / "clip.mp3", clip)
             return self._deliver(mp3, base_dir, "audio", info, clip)
+
+    def run_preview(self, info: VideoInfo, dest: Path) -> Path:
+        """Baixa a cópia leve para escolher o trecho; fica em dest até o programa fechar."""
+        dest.mkdir(parents=True, exist_ok=True)
+        info_json = dest / "info.json"
+        info_json.write_text(json.dumps(info.raw), encoding="utf-8")
+        self._run_ytdlp(preview_args(self.tools, info_json, dest), DownloadTracker({}))
+        found = [p for p in dest.glob("preview.*") if p.suffix in (".mkv", ".mp4", ".webm")]
+        if not found:
+            raise DownloadError(friendly_error(""))
+        return found[0]
 
     def cancel(self) -> None:
         self._cancelled = True
