@@ -14,6 +14,8 @@ Alguns antivírus desconfiam de programas novos feitos em Python, sem motivo rea
 
 O YouTube limita quem faz muitos downloads seguidos da mesma internet. A fila **pausa sozinha**. Espere algumas horas e clique em **▶ Continuar fila**. Atualizar o programa não resolve; é só esperar. Isso é raro com uso normal.
 
+Para evitar o bloqueio, o programa controla o ritmo: as 3 primeiras consultas passam na hora e, depois, vai uma a cada 20 segundos. Por isso às vezes aparece *Aguardando 12 s (evita bloqueio do YouTube)*. É normal: a fila continua sozinha.
+
 ### O programa disse "Você já baixou este vídeo".
 
 Ele evita baixar o mesmo vídeo duas vezes no mesmo formato. Clique em **📁 Abrir pasta** para ver o arquivo. Se quiser baixar de novo, apague o arquivo antigo primeiro.

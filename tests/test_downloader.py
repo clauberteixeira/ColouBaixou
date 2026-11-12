@@ -285,3 +285,20 @@ def test_old_lookup_is_not_reused(tmp_path):
     job, log, _, _ = make_job(tmp_path, [([], 0, "media.mp3")])
     job.run_audio(URL, old, tmp_path / "base")
     assert log[0][-1] == URL and "--load-info-json" not in log[0]
+
+
+def test_lookups_wait_their_turn(monkeypatch):
+    from ytdl import pacer
+    calls = []
+    monkeypatch.setattr(pacer, "YOUTUBE", type("P", (), {"wait": lambda self, *a: calls.append("wait")})())
+    fetch_info(TOOLS, URL, run=lambda args, timeout: completed(0, json.dumps(DATA)))
+    assert calls == ["wait"]
+
+
+def test_download_that_asks_youtube_again_waits_its_turn(tmp_path, monkeypatch):
+    from ytdl import pacer
+    calls = []
+    monkeypatch.setattr(pacer, "YOUTUBE", type("P", (), {"wait": lambda self, *a: calls.append("wait")})())
+    job, _, _, _ = make_job(tmp_path, [([], 0, "media.mp3")])
+    job.run_audio(URL, INFO, tmp_path / "base")  # sem consulta recente: o yt-dlp consulta de novo
+    assert calls == ["wait"]

@@ -19,6 +19,7 @@ from ytdl.clip import Clip, clip_suffix
 from ytdl.commands import audio_args, ffmpeg_args, info_args, playlist_args, preview_args, video_args
 from ytdl.errors import NO_SPACE, Cancelled, DownloadError, error_for_live, friendly_error
 from ytdl.formats import VideoInfo, VideoPlan, available_heights, best_audio, parse_info
+from ytdl import pacer
 from ytdl.net import urlopen
 from ytdl.paths import destination_path
 from ytdl.playlist import Playlist, parse_playlist, playlist_limit
@@ -56,7 +57,10 @@ class ProcessRunner:
                            capture_output=True, creationflags=NO_WINDOW)
 
 
-def fetch_info(t: Tools, url: str, run=run_quiet) -> VideoInfo:
+def fetch_info(t: Tools, url: str, run=run_quiet, on_wait: Callable[[int], None] = lambda s: None,
+               cancelled: Callable[[], bool] = lambda: False) -> VideoInfo:
+    """Consulta o vídeo no YouTube, no ritmo que evita o bloqueio (on_wait: segundos de espera)."""
+    pacer.YOUTUBE.wait(on_wait, cancelled)
     args = info_args(t, url)
     log.info("info: %s", args)
     result = run(args, timeout=180)
@@ -95,6 +99,7 @@ def fetch_oembed(video_id: str, opener=urlopen) -> tuple[str, str] | None:
 
 def fetch_playlist(t: Tools, url: str, playlist_id: str, run=run_quiet) -> Playlist:
     limit = playlist_limit(playlist_id)
+    pacer.YOUTUBE.wait()
     args = playlist_args(t, url, limit)
     log.info("playlist: %s", args)
     result = run(args, timeout=300)
@@ -171,6 +176,10 @@ class Job:
             raise DownloadError(friendly_error(""))
         return found[0]
 
+    @property
+    def cancelled(self) -> bool:
+        return self._cancelled
+
     def cancel(self) -> None:
         self._cancelled = True
         if self._runner:
@@ -231,6 +240,8 @@ class Job:
         cair no bloqueio "not a bot". Os endereços dos arquivos valem algumas horas.
         """
         if not info.raw or time.time() - info.raw.get("epoch", 0) > INFO_MAX_AGE_S:
+            pacer.YOUTUBE.wait(lambda s: self.on_progress(Progress("wait", None, None, None, s)),
+                               lambda: self._cancelled)
             return args
         path = tmp / "info.json"
         path.write_text(json.dumps(info.raw), encoding="utf-8")
