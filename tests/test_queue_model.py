@@ -217,3 +217,11 @@ def test_requeue_forgets_a_pending_cancel():
     m.cancel(item.id)
     m.requeue(item.id)
     assert item.status == Status.QUEUED and item.cancelling is False
+
+
+def test_clips_of_the_same_video_are_not_duplicates():
+    m = QueueModel()
+    assert m.add(A, "audio", Status.QUEUED) is not None
+    assert m.add(A, "audio", Status.QUEUED, clip=(5, 60)) is not None
+    assert m.add(A, "audio", Status.QUEUED, clip=(60, 90)) is not None
+    assert m.add(A, "audio", Status.QUEUED, clip=(5, 60)) is None

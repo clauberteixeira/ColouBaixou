@@ -3,6 +3,7 @@
 from pathlib import Path
 from typing import Literal
 
+from ytdl.clip import Clip
 from ytdl.formats import VideoPlan
 from ytdl.progress import PROGRESS_TEMPLATE
 from ytdl.titles import TITLE_CLEANUPS
@@ -87,13 +88,24 @@ def _filters(plan: VideoPlan) -> str:
     return ",".join(chain)
 
 
+def _seek(clip: Clip | None) -> list[str]:
+    """Antes do -i: o ffmpeg pula direto para o início e para no fim do trecho."""
+    return ["-ss", str(clip[0]), "-t", str(clip[1] - clip[0])] if clip else []
+
+
 def ffmpeg_args(ffmpeg: Path, src: Path, dst: Path, plan: VideoPlan,
-                encoder: Literal["nvenc", "qsv", "amf", "x264"]) -> list[str]:
+                encoder: Literal["nvenc", "qsv", "amf", "x264"], clip: Clip | None = None) -> list[str]:
     args = [str(ffmpeg), "-y", "-hide_banner", "-nostats", "-progress", "pipe:1",
-            "-i", str(src), "-map", "0:v:0", "-map", "0:a:0"]
+            *_seek(clip), "-i", str(src), "-map", "0:v:0", "-map", "0:a:0"]
     if plan.transcode_video:
         args += ["-vf", _filters(plan)] + ENCODERS[encoder]
     else:
         args += ["-c:v", "copy"]
     args += ["-c:a", "aac", "-b:a", "192k"] if plan.transcode_audio else ["-c:a", "copy"]
     return args + ["-movflags", "+faststart", str(dst)]
+
+
+def cut_args(ffmpeg: Path, src: Path, dst: Path, clip: Clip) -> list[str]:
+    """Corta o MP3 sem converter de novo; mantém capa e etiquetas."""
+    return [str(ffmpeg), "-y", "-hide_banner", "-nostats", *_seek(clip), "-i", str(src),
+            "-map", "0", "-c", "copy", "-id3v2_version", "3", str(dst)]

@@ -5,6 +5,7 @@
 - [Baixar um vídeo](#baixar-um-vídeo)
 - [Baixar só o áudio (MP3)](#baixar-só-o-áudio-mp3)
 - [Escolher a qualidade](#escolher-a-qualidade)
+- [Baixar só um trecho](#baixar-só-um-trecho)
 - [Baixar vários vídeos de uma vez](#baixar-vários-vídeos-de-uma-vez)
 - [Baixar de uma playlist ou Mix](#baixar-de-uma-playlist-ou-mix)
 - [A fila de downloads](#a-fila-de-downloads)
@@ -37,6 +38,18 @@ Na prévia, o seletor começa em **Melhor disponível**, que é a melhor qualida
 - **Outros computadores:** a melhor qualidade que **não precisa de conversão** (normalmente 1080p, que já fica ótima na TV), porque é rápida em qualquer máquina. As qualidades maiores continuam na lista com o aviso **"(pode demorar neste PC)"**.
 
 Para ocupar menos espaço, escolha uma qualidade menor (720p, 480p…).
+
+## Baixar só um trecho
+
+Na prévia, a linha **✂ Baixar só o trecho de … até …** já vem com o vídeo inteiro (de `0:00` até o fim). Para baixar só uma parte, mude os tempos e clique em **⬇ MP4** ou **♪ MP3**:
+
+- **De 1:30 até 2:45**: só esse pedaço.
+- **De 1:30 até o fim**: mude só o primeiro tempo.
+- **Do começo até 2:00**: mude só o segundo tempo.
+
+Escreva os tempos como minutos:segundos (`1:30`) ou horas:minutos:segundos (`1:02:30`). O arquivo leva o trecho no nome, por exemplo `Música (trecho 1m30s a 2m45s).mp3`, e na fila aparece `✂ 1:30–2:45`.
+
+Pode baixar quantos trechos quiser do mesmo vídeo: cada um vira um arquivo separado. O programa baixa o vídeo e corta no ponto exato, por isso o trecho de um vídeo longo demora quase o mesmo que o vídeo inteiro.
 
 ## Baixar vários vídeos de uma vez
 

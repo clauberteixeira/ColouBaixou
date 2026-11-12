@@ -9,11 +9,13 @@ import threading
 import urllib.error
 import uuid
 from collections import deque
+from dataclasses import replace
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Callable, Iterator
 
-from ytdl.commands import audio_args, ffmpeg_args, info_args, playlist_args, video_args
+from ytdl.clip import Clip, clip_suffix
+from ytdl.commands import audio_args, cut_args, ffmpeg_args, info_args, playlist_args, video_args
 from ytdl.errors import NO_SPACE, Cancelled, DownloadError, error_for_live, friendly_error
 from ytdl.formats import VideoInfo, VideoPlan, available_heights, best_audio, parse_info
 from ytdl.net import urlopen
@@ -123,7 +125,9 @@ class Job:
 
     # --- API pública -------------------------------------------------
 
-    def run_video(self, url: str, info: VideoInfo, plan: VideoPlan, base_dir: Path) -> Path:
+    def run_video(self, url: str, info: VideoInfo, plan: VideoPlan, base_dir: Path, clip: Clip | None = None) -> Path:
+        if clip:  # corte no ponto exato exige reconverter
+            plan = replace(plan, transcode_video=True, transcode_audio=True)
         transcode = plan.transcode_video or plan.transcode_audio
         self._check_space(base_dir, plan.est_bytes * (3 if transcode else 2))
         with self._workdir() as tmp:
@@ -131,10 +135,10 @@ class Job:
             self._run_ytdlp(video_args(self.tools, url, plan, tmp), tracker)
             merged = tmp / ("media.mkv" if transcode else "media.mp4")
             self._require(merged)
-            final = self._convert(merged, tmp / "final.mp4", plan, info.duration) if transcode else merged
-            return self._deliver(final, base_dir, "video", info)
+            final = self._convert(merged, tmp / "final.mp4", plan, info.duration, clip) if transcode else merged
+            return self._deliver(final, base_dir, "video", info, clip)
 
-    def run_audio(self, url: str, info: VideoInfo, base_dir: Path) -> Path:
+    def run_audio(self, url: str, info: VideoInfo, base_dir: Path, clip: Clip | None = None) -> Path:
         audio = best_audio(info)
         self._check_space(base_dir, (audio.size or 0) * 3)
         with self._workdir() as tmp:
@@ -142,7 +146,9 @@ class Job:
             self._run_ytdlp(audio_args(self.tools, url, audio.format_id, tmp), tracker)
             mp3 = tmp / "media.mp3"
             self._require(mp3)
-            return self._deliver(mp3, base_dir, "audio", info)
+            if clip:
+                mp3 = self._cut(mp3, tmp / "clip.mp3", clip)
+            return self._deliver(mp3, base_dir, "audio", info, clip)
 
     def cancel(self) -> None:
         self._cancelled = True
@@ -197,8 +203,17 @@ class Job:
         if rc != 0:
             raise DownloadError(friendly_error(output))
 
-    def _convert(self, src: Path, dst: Path, plan: VideoPlan, duration: int) -> Path:
+    def _cut(self, src: Path, dst: Path, clip: Clip) -> Path:
+        rc, output = self._run(cut_args(self.tools.ffmpeg_dir / "ffmpeg.exe", src, dst, clip), lambda line: None)
+        if rc != 0:
+            raise DownloadError(friendly_error(output))
+        self._require(dst)
+        return dst
+
+    def _convert(self, src: Path, dst: Path, plan: VideoPlan, duration: int, clip: Clip | None = None) -> Path:
         ffmpeg = self.tools.ffmpeg_dir / "ffmpeg.exe"
+        if clip:
+            duration = clip[1] - clip[0]
 
         def on_line(line: str) -> None:
             pct = parse_ffmpeg_line(line, duration)
@@ -209,7 +224,7 @@ class Job:
         encoders = [self.tools.hw_encoder] if self.tools.hw_encoder else []
         for encoder in encoders + ["x264"]:
             self.on_progress(Progress("convert", 0.0, None, None, None))
-            rc, output = self._run(ffmpeg_args(ffmpeg, src, dst, plan, encoder), on_line)
+            rc, output = self._run(ffmpeg_args(ffmpeg, src, dst, plan, encoder, clip), on_line)
             if rc == 0:
                 return dst
             log.warning("conversão com %s falhou, tentando a próxima", encoder)
@@ -219,12 +234,12 @@ class Job:
         if not path.exists():
             raise DownloadError(friendly_error(""))
 
-    def _deliver(self, src: Path, base_dir: Path, kind, info: VideoInfo) -> Path:
+    def _deliver(self, src: Path, base_dir: Path, kind, info: VideoInfo, clip: Clip | None = None) -> Path:
         with DELIVER_LOCK:  # vários downloads ao mesmo tempo: nome livre + mover, sem um sobrescrever o outro
-            return self._move(src, base_dir, kind, info)
+            return self._move(src, base_dir, kind, info, clip)
 
-    def _move(self, src: Path, base_dir: Path, kind, info: VideoInfo) -> Path:
-        dest = destination_path(base_dir, kind, info.channel, clean_title(info.title))
+    def _move(self, src: Path, base_dir: Path, kind, info: VideoInfo, clip: Clip | None) -> Path:
+        dest = destination_path(base_dir, kind, info.channel, clean_title(info.title), clip_suffix(clip))
         # Entre discos diferentes o move vira cópia; copia para .part e só renomeia no fim,
         # para nunca deixar um arquivo pela metade com o nome final.
         part = dest.with_name(dest.name + ".part")

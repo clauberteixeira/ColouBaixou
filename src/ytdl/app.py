@@ -17,6 +17,7 @@ import customtkinter as ctk
 from PIL import Image
 
 from ytdl.about import APP_NAME, AUTHOR, AUTHOR_URL, REPO_URL, VERSION
+from ytdl.clip import clip_label, clip_range
 from ytdl.config import Config, load_config, remember_playlist, remember_window, save_config
 from ytdl.downloader import Job, cleanup_stale_temp, fetch_info, fetch_oembed
 from ytdl.errors import (BOT_BLOCK, INVALID_LINK, NO_NODE_WARNING, Cancelled, DownloadError, FriendlyError,
@@ -142,14 +143,22 @@ class App(ctk.CTk):
         self.preview.grid(row=2, column=0, sticky="ew", pady=4, **pad)
         self.preview.grid_columnconfigure(1, weight=1)
         self.thumb_label = ctk.CTkLabel(self.preview, text="", width=THUMB_SIZE[0], height=THUMB_SIZE[1])
-        self.thumb_label.grid(row=0, column=0, rowspan=3, padx=12, pady=12)
+        self.thumb_label.grid(row=0, column=0, rowspan=4, padx=12, pady=12)
         self.title_label = ctk.CTkLabel(self.preview, text="", font=ctk.CTkFont(size=15, weight="bold"),
                                         anchor="w", justify="left", wraplength=480)
         self.title_label.grid(row=0, column=1, sticky="ew", padx=(0, 12), pady=(12, 0))
         self.meta_label = ctk.CTkLabel(self.preview, text="", anchor="w", text_color=MUTED)
         self.meta_label.grid(row=1, column=1, sticky="ew", padx=(0, 12))
         self.quality_menu = ctk.CTkOptionMenu(self.preview, values=[BEST], width=240)
-        self.quality_menu.grid(row=2, column=1, sticky="w", padx=(0, 12), pady=(4, 12))
+        self.quality_menu.grid(row=2, column=1, sticky="w", padx=(0, 12), pady=(4, 4))
+        clip_row = ctk.CTkFrame(self.preview, fg_color="transparent")
+        clip_row.grid(row=3, column=1, sticky="w", padx=(0, 12), pady=(0, 12))
+        ctk.CTkLabel(clip_row, text="✂ Baixar só o trecho de").grid(row=0, column=0, padx=(0, 6))
+        self.clip_start = ctk.CTkEntry(clip_row, width=80, justify="center")
+        self.clip_start.grid(row=0, column=1)
+        ctk.CTkLabel(clip_row, text="até").grid(row=0, column=2, padx=6)
+        self.clip_end = ctk.CTkEntry(clip_row, width=80, justify="center")
+        self.clip_end.grid(row=0, column=3)
         self.preview.grid_remove()
 
         buttons = ctk.CTkFrame(self, fg_color="transparent")
@@ -478,6 +487,10 @@ class App(ctk.CTk):
         self.quality_menu.set(labels[0])
         self.title_label.configure(text=info.title)
         self.meta_label.configure(text=f"{info.channel} · {format_duration(info.duration)} · até {top}")
+        # começa com o vídeo inteiro; mudar os tempos baixa só a parte escolhida
+        for entry, value in ((self.clip_start, "0:00"), (self.clip_end, format_duration(info.duration))):
+            entry.delete(0, "end")
+            entry.insert(0, value)
         if image:
             self._thumb = ctk.CTkImage(light_image=image, dark_image=image, size=THUMB_SIZE)
             self.thumb_label.configure(image=self._thumb)
@@ -522,10 +535,16 @@ class App(ctk.CTk):
     def _add_preview(self, kind: Kind) -> None:
         if not self.info:
             return
-        self._remember_kind(kind)
         info = self.info
+        try:
+            clip = clip_range(self.clip_start.get(), self.clip_end.get(), info.duration)
+        except ValueError as exc:
+            self._status(str(exc), True)
+            return
+        self._remember_kind(kind)
         res = self.quality_map.get(self.quality_menu.get()) if kind == "video" else None
-        existing = self.downloaded_path(info.id, kind, info.channel, info.title)
+        # trecho: cada parte é um arquivo novo, então não confere o que já foi baixado
+        existing = None if clip else self.downloaded_path(info.id, kind, info.channel, info.title)
         if existing:
             self.last_file = existing  # "Abrir pasta" mostra o arquivo
             self._status(f"Você já baixou este vídeo em {'MP4' if kind == 'video' else 'MP3'}. "
@@ -533,9 +552,10 @@ class App(ctk.CTk):
             return
         added, _, _ = self.add_to_queue(
             [(info.id, {"title": info.title, "channel": info.channel, "duration": info.duration,
-                        "info": info, "res": res})], kind, Status.QUEUED)
+                        "info": info, "res": res, "clip": clip})], kind, Status.QUEUED)
         self._show_update_button(False)
-        self._status(f"Adicionado à fila: {info.title}" if added else "Já está na fila.")
+        part = f" (trecho {clip_label(clip)})" if clip else ""
+        self._status(f"Adicionado à fila: {info.title}{part}" if added else "Já está na fila.")
         self.pump_queue()
 
     def _add_many(self, text: str) -> None:
@@ -638,13 +658,14 @@ class App(ctk.CTk):
     def _start_next(self) -> bool:
         item = self.model.next_item()
         # barreira 2: confere de novo na hora de começar (algo pode ter sido baixado enquanto esperava)
-        while item is not None and (existing := self.downloaded_path(item.video_id, item.kind, item.channel, item.title)):
+        while item is not None and not item.clip and (
+                existing := self.downloaded_path(item.video_id, item.kind, item.channel, item.title)):
             self.model.mark_previously_downloaded(item.id, existing)
             item = self.model.next_item()
         if item is None:
             return False
         self.model.start(item.id)
-        item_id, video_id, kind, info, res = item.id, item.video_id, item.kind, item.info, item.res
+        item_id, video_id, kind, info, res, clip = item.id, item.video_id, item.kind, item.info, item.res, item.clip
         base = self.settings.base_dir  # a pasta vale a partir do início de cada item
         job = Job(self.tools, app_data_dir() / "tmp", lambda p: self.events.put(("q_progress", (item_id, p))))
         tools, fast, history = self.tools, self.fast, self.history
@@ -656,14 +677,14 @@ class App(ctk.CTk):
                     info = fetch_info(tools, url)
                     self.events.put(("q_info", (item_id, info)))
                 # barreira 3: agora com título e canal reais, o arquivo já existe?
-                existing = already_downloaded(history, base, video_id, kind, info.channel, info.title)
+                existing = None if clip else already_downloaded(history, base, video_id, kind, info.channel, info.title)
                 if existing:
                     self.events.put(("q_previously", (item_id, existing)))
                     return
                 if kind == "video":
-                    path = job.run_video(url, info, plan_video(info, res, fast=fast), base)
+                    path = job.run_video(url, info, plan_video(info, res, fast=fast), base, clip)
                 else:
-                    path = job.run_audio(url, info, base)
+                    path = job.run_audio(url, info, base, clip)
                 self.events.put(("q_done", (item_id, path)))
             except Cancelled:
                 self.events.put(("q_cancelled", item_id))
@@ -713,7 +734,7 @@ class App(ctk.CTk):
 
     def _on_q_done(self, payload) -> None:
         item_id, path = payload
-        if item := self.model.get(item_id):
+        if (item := self.model.get(item_id)) and not item.clip:  # um trecho não conta como o vídeo inteiro
             self.history.record(item.video_id, item.kind, path)
         self.model.finish(item_id, path)
         self.last_file = path

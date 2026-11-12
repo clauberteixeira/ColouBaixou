@@ -1,5 +1,9 @@
 # Novidades
 
+## 1.5.0 (12/11/2026)
+
+- **Baixar só um trecho**: na prévia, escolha de que tempo até que tempo baixar (ex.: de 1:30 até 2:45, ou de 1:30 até o fim). Funciona em MP4 e MP3, com corte no ponto exato. O arquivo leva o trecho no nome.
+
 ## 1.4.0 (01/11/2026)
 
 - **Lembra o último formato**: o MP3 ou MP4 usado por último já vem marcado em *Formato para os próximos*, mesmo depois de fechar e abrir.
