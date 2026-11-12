@@ -1,5 +1,11 @@
 # Novidades
 
+## 1.6.3 (12/11/2026)
+
+- **Corrigido:** o fim digitado nos campos era ignorado quando a pessoa clicava em baixar sem apertar Enter, e o trecho ia até o fim da música.
+- **Validação antes de baixar:** início depois do fim, letras nos campos ou início depois do fim do vídeo mostram o erro em vermelho e não baixam.
+- **Conferência depois de baixar:** o programa mede o arquivo pronto; se passou do fim escolhido, corta o excesso sozinho.
+
 ## 1.6.2 (12/11/2026)
 
 - **Campos de hora, minuto e segundo** para o início e o fim do trecho, junto com a linha do tempo. Digitar move as alças; arrastar as alças atualiza os campos.

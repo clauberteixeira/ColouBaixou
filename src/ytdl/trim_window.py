@@ -12,7 +12,7 @@ from typing import Callable
 import customtkinter as ctk
 from PIL import Image, ImageTk
 
-from ytdl.clip import Clip, as_clip, join_hms, split_hms
+from ytdl.clip import Clip, as_clip, check_range, join_hms, split_hms
 from ytdl.downloader import Job
 from ytdl.errors import Cancelled, DownloadError
 from ytdl.formats import VideoInfo, format_duration
@@ -27,6 +27,7 @@ from ytdl.windowing import center_on_screen
 TICK_MS = 30
 GRAB_DELAY_MS = 40  # ao arrastar, espera a mão parar um instante antes de buscar a imagem
 MUTED = ("gray35", "gray65")
+TEXT = ("gray10", "gray90")
 ERROR_COLOR = ("#c5221f", "#f28b82")
 RED, RED_HOVER = ("#d93025", "#d93025"), ("#b3261e", "#b3261e")
 BLUE, BLUE_HOVER = ("#1a73e8", "#1a73e8"), ("#1558b0", "#1558b0")
@@ -163,7 +164,7 @@ class TrimWindow(ctk.CTkToplevel):
 
     def _show_times(self, force: str | None = None) -> None:
         self.clock.configure(text=f"{format_duration(int(self.playhead))} / {format_duration(self.duration)}")
-        self.range_label.configure(text=f"Trecho de {format_duration(self.end - self.start)}")
+        self.range_label.configure(text=f"Trecho de {format_duration(self.end - self.start)}", text_color=TEXT)
         for which, value in (("start", self.start), ("end", self.end)):
             for entry, number in zip(self.fields[which], split_hms(value)):
                 text = f"{number:02d}" if entry is not self.fields[which][0] else str(number)
@@ -376,8 +377,15 @@ class TrimWindow(ctk.CTkToplevel):
     # --- ações -----------------------------------------------------------
 
     def _add(self, kind: Kind) -> None:
-        """Manda para a fila e fecha: o andamento aparece na fila da janela principal."""
-        clip = as_clip(self.start, self.end, self.duration)
+        """Confere os tempos, manda para a fila e fecha: o andamento aparece na fila da janela principal."""
+        # vale o que está escrito nos campos, mesmo sem Enter (clicar no botão não tira o foco do campo)
+        typed = (join_hms(*(e.get() for e in self.fields[w])) for w in ("start", "end"))
+        try:
+            start, end = check_range(*typed, self.duration)
+        except ValueError as exc:
+            self.range_label.configure(text=f"⚠ {exc}", text_color=ERROR_COLOR)
+            return
+        clip = as_clip(start, end, self.duration)
         self.close()
         self.on_add(kind, clip, self.info)
 

@@ -124,3 +124,15 @@ def ffmpeg_args(ffmpeg: Path, src: Path, dst: Path, plan: VideoPlan,
     args += ["-c:a", "aac", "-b:a", "192k"] if plan.transcode_audio else ["-c:a", "copy"]
     return args + ["-movflags", "+faststart", str(dst)]
 
+
+
+def probe_args(ffprobe: Path, path: Path) -> list[str]:
+    """Duração do arquivo em segundos (uma linha)."""
+    return [str(ffprobe), "-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", str(path)]
+
+
+def trim_end_args(ffmpeg: Path, src: Path, dst: Path, length: int) -> list[str]:
+    """Corta o que passou do fim, sem converter de novo (o começo já está certo)."""
+    tags = ["-id3v2_version", "3"] if dst.suffix == ".mp3" else []
+    return [str(ffmpeg), "-y", "-hide_banner", "-nostats", "-i", str(src), "-t", str(length),
+            "-map", "0", "-c", "copy", *tags, str(dst)]

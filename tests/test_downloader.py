@@ -237,17 +237,18 @@ def test_two_jobs_finishing_together_never_overwrite(tmp_path):
 
 def test_audio_clip_downloads_only_the_part_and_is_named(tmp_path):
     base = tmp_path / "base"
-    job, log, _, events = make_job(tmp_path, [([], 0, "media.mp3")])
+    job, log, _, events = make_job(tmp_path, [([], 0, "media.mp3"), (["55.02"], 0, None)])
     result = job.run_audio(URL, INFO, base, clip=(5, 60))
     assert result.name == "Vídeo de Teste (trecho 0m05s a 1m00s).mp3"
     assert result.exists()
-    assert len(log) == 1 and "--download-sections" in log[0]
+    assert "--download-sections" in log[0] and len(log) == 2  # baixou e conferiu o tamanho
     assert events[0].stage == "clip"
     assert tmp_empty(tmp_path)
 
 
 def test_video_clip_always_converts_and_reports_clip_progress(tmp_path):
-    job, log, _, events = make_job(tmp_path, [([], 0, "media.mkv"), (["out_time_us=27500000"], 0, "final.mp4")])
+    job, log, _, events = make_job(tmp_path, [([], 0, "media.mkv"), (["out_time_us=27500000"], 0, "final.mp4"),
+                                              (["55.06"], 0, None)])
     result = job.run_video(URL, INFO, plan_video(INFO, 1080), tmp_path / "base", clip=(5, 60))
     assert result.name == "Vídeo de Teste (trecho 0m05s a 1m00s).mp4"
     assert "--download-sections" in log[0]
@@ -302,3 +303,23 @@ def test_download_that_asks_youtube_again_waits_its_turn(tmp_path, monkeypatch):
     job, _, _, _ = make_job(tmp_path, [([], 0, "media.mp3")])
     job.run_audio(URL, INFO, tmp_path / "base")  # sem consulta recente: o yt-dlp consulta de novo
     assert calls == ["wait"]
+
+
+def test_clip_that_went_past_the_end_is_trimmed(tmp_path):
+    base = tmp_path / "base"
+    job, log, _, _ = make_job(tmp_path, [([], 0, "media.mp3"), (["412.3"], 0, None), ([], 0, "checked.mp3"),
+                                         (["55.0"], 0, None)])
+    result = job.run_audio(URL, INFO, base, clip=(5, 60))
+    assert result.exists()
+    trim = log[2]
+    assert trim[trim.index("-t") + 1] == "55" and "copy" in trim
+
+
+def test_clip_that_cannot_be_fixed_is_an_error_not_a_wrong_file(tmp_path):
+    base = tmp_path / "base"
+    job, _, _, _ = make_job(tmp_path, [([], 0, "media.mp3"), (["412.3"], 0, None), ([], 0, "checked.mp3"),
+                                       (["412.3"], 0, None)])
+    with pytest.raises(DownloadError) as exc:
+        job.run_audio(URL, INFO, base, clip=(5, 60))
+    assert "tamanho" in exc.value.friendly.message
+    assert not any(p.is_file() for p in base.rglob("*"))

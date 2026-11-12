@@ -37,3 +37,15 @@ def join_hms(hours: str, minutes: str, seconds: str) -> int | None:
         return None
     h, m, s = (int(p) for p in parts)
     return h * 3600 + m * 60 + s
+
+
+def check_range(start: int | None, end: int | None, duration: int) -> Clip:
+    """Confere o início e o fim antes de baixar; ValueError explica o que corrigir."""
+    if start is None or end is None:
+        raise ValueError("Use só números em hora, minuto e segundo.")
+    if start >= duration:
+        raise ValueError(f"O início passa do fim do vídeo ({format_duration(duration)}).")
+    end = min(end, duration)
+    if start >= end:
+        raise ValueError("O início do trecho precisa ser antes do fim.")
+    return start, end

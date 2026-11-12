@@ -16,8 +16,8 @@ from pathlib import Path
 from typing import Callable, Iterator
 
 from ytdl.clip import Clip, clip_suffix
-from ytdl.commands import audio_args, ffmpeg_args, info_args, playlist_args, preview_args, video_args
-from ytdl.errors import NO_SPACE, Cancelled, DownloadError, error_for_live, friendly_error
+from ytdl.commands import audio_args, ffmpeg_args, probe_args, trim_end_args, info_args, playlist_args, preview_args, video_args
+from ytdl.errors import NO_SPACE, Cancelled, DownloadError, FriendlyError, error_for_live, friendly_error
 from ytdl.formats import VideoInfo, VideoPlan, available_heights, best_audio, parse_info
 from ytdl import pacer
 from ytdl.net import urlopen
@@ -31,6 +31,7 @@ log = logging.getLogger("ytdl")
 DELIVER_LOCK = threading.Lock()
 TAIL_LINES = 50
 INFO_MAX_AGE_S = 3 * 3600  # depois disso, consulta de novo
+CLIP_TOLERANCE_S = 1.5  # folga na conferência do tamanho do trecho
 
 
 class ProcessRunner:
@@ -151,6 +152,7 @@ class Job:
             merged = tmp / ("media.mkv" if transcode else "media.mp4")
             self._require(merged)
             final = self._convert(merged, tmp / "final.mp4", plan, info.duration, clip) if transcode else merged
+            final = self._check_clip(final, tmp / "checked.mp4", clip)
             return self._deliver(final, base_dir, "video", info, clip)
 
     def run_audio(self, url: str, info: VideoInfo, base_dir: Path, clip: Clip | None = None) -> Path:
@@ -163,6 +165,7 @@ class Job:
                             tracker)
             mp3 = tmp / "media.mp3"
             self._require(mp3)
+            mp3 = self._check_clip(mp3, tmp / "checked.mp3", clip)
             return self._deliver(mp3, base_dir, "audio", info, clip)
 
     def run_preview(self, info: VideoInfo, dest: Path) -> Path:
@@ -246,6 +249,32 @@ class Job:
         path = tmp / "info.json"
         path.write_text(json.dumps(info.raw), encoding="utf-8")
         return args[:-1] + ["--load-info-json", str(path)]
+
+    def _duration(self, path: Path) -> float | None:
+        lines: list[str] = []
+        rc, _ = self._run(probe_args(self.tools.ffmpeg_dir / "ffprobe.exe", path), lines.append)
+        try:
+            return float(lines[-1]) if rc == 0 and lines else None
+        except ValueError:
+            return None
+
+    def _check_clip(self, src: Path, dst: Path, clip: Clip | None) -> Path:
+        """Confere se o trecho pronto parou no fim escolhido; se passou, corta o excesso.
+
+        Já aconteceu de o arquivo ir até o fim da música; isto garante o fim escolhido.
+        """
+        if not clip:
+            return src
+        length = clip[1] - clip[0]
+        duration = self._duration(src)
+        if duration is None or duration <= length + CLIP_TOLERANCE_S:
+            return src
+        log.warning("trecho com %.1f s em vez de %s s: cortando o fim", duration, length)
+        rc, output = self._run(trim_end_args(self.tools.ffmpeg_dir / "ffmpeg.exe", src, dst, length), lambda l: None)
+        fixed = self._duration(dst) if rc == 0 and dst.exists() else None
+        if fixed is None or fixed > length + CLIP_TOLERANCE_S:
+            raise DownloadError(FriendlyError("O trecho não saiu do tamanho escolhido. Tente de novo."))
+        return dst
 
     def _announce_clip(self, clip: Clip | None) -> None:
         """Baixando só o pedaço o yt-dlp não informa o andamento; avisa o que está acontecendo."""
