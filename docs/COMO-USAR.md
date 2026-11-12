@@ -44,6 +44,7 @@ Para ocupar menos espaço, escolha uma qualidade menor (720p, 480p…).
 1. Cole o link. Na prévia, clique em **✂ Baixar só um trecho…**.
 2. Abre a janela **Escolher trecho**, com o vídeo. Em poucos segundos ele fica pronto para assistir.
 3. **Arraste as alças azuis** da linha do tempo: a da esquerda marca o início, a da direita marca o fim. Enquanto arrasta, o vídeo mostra aquele ponto.
+   Se preferir, digite nos campos **Início** e **Fim** a hora, o minuto e o segundo e aperte **Enter**: as alças vão para lá. Arrastando as alças, os campos mudam junto.
 4. Clique em **▶** para assistir e ouvir o trecho escolhido. Clicar na linha do tempo pula para aquele ponto.
 5. Clique em **⬇ Baixar trecho em MP4** ou **♪ Baixar trecho em MP3**.
 

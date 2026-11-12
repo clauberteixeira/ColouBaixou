@@ -83,9 +83,9 @@ class Timeline(ctk.CTkCanvas):
     def nudge(self, step: int) -> None:
         """Setas do teclado: mexe 1 s a última alça usada."""
         t = (self.start if self.active == "start" else self.end) + step
-        self._apply(self.active, t)
+        self.move(self.active, t)
 
-    def _apply(self, which: Handle, t: float) -> None:
+    def move(self, which: Handle, t: float) -> None:
         start, end = move_handle(which, t, self.start, self.end, self.duration)
         if (start, end) != (self.start, self.end):
             self.set_range(start, end)
@@ -101,6 +101,6 @@ class Timeline(ctk.CTkCanvas):
 
     def _drag(self, event) -> None:
         if self._dragging:
-            self._apply(self._dragging, to_time(event.x, self.duration, self.winfo_width()))
+            self.move(self._dragging, to_time(event.x, self.duration, self.winfo_width()))
         else:
             self.on_seek(to_time(event.x, self.duration, self.winfo_width()))
