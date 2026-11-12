@@ -25,6 +25,7 @@ class Tools:
     node: Path | None
     hw_encoder: str | None = None  # "nvenc", "qsv", "amf" ou None (só processador)
     deno: Path | None = None  # usado quando não há Node.js
+    cookies_browser: str | None = None  # "firefox" quando o login do YouTube está ligado
 
     @property
     def js_runtime(self) -> str | None:

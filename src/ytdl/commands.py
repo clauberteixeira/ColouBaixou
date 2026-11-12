@@ -32,8 +32,14 @@ def base_args(t: Tools) -> list[str]:
         # baixa em 8 partes paralelas (medido: ~2,2x mais rápido, mesmo arquivo)
         "-N", "8", "--extractor-args", "youtube:formats=dashy",
     ]
-    if t.js_runtime:
-        args += ["--js-runtimes", t.js_runtime]
+    return args + _common(t)
+
+
+def _common(t: Tools) -> list[str]:
+    """Vale para toda consulta: JavaScript do YouTube e, se ligado, o login do Firefox."""
+    args = ["--js-runtimes", t.js_runtime] if t.js_runtime else []
+    if t.cookies_browser:
+        args += ["--cookies-from-browser", t.cookies_browser]
     return args
 
 
@@ -41,9 +47,7 @@ def playlist_args(t: Tools, url: str, limit: int) -> list[str]:
     # sem base_args: ele tem --no-playlist
     args = [str(t.ytdlp), "--yes-playlist", "--flat-playlist", "-J",
             "--playlist-end", str(limit), "--encoding", "utf-8"]
-    if t.js_runtime:
-        args += ["--js-runtimes", t.js_runtime]
-    return args + [url]
+    return args + _common(t) + [url]
 
 
 def info_args(t: Tools, url: str) -> list[str]:

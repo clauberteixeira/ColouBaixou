@@ -172,3 +172,11 @@ def test_trim_end_keeps_everything_and_only_cuts_the_end():
     assert "-ss" not in a and pair(a, "-t") == "55" and pair(a, "-c") == "copy" and pair(a, "-map") == "0"
     assert "-id3v2_version" in a
     assert "-id3v2_version" not in trim_end_args(Path("ffmpeg.exe"), Path("in.mp4"), Path("out.mp4"), 55)
+
+
+def test_youtube_login_uses_the_firefox_session():
+    from dataclasses import replace
+    logged = replace(T, cookies_browser="firefox")
+    for a in (base_args(logged), playlist_args(logged, "U", 50)):
+        assert pair(a, "--cookies-from-browser") == "firefox"
+    assert "--cookies-from-browser" not in base_args(T)

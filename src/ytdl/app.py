@@ -282,7 +282,7 @@ class App(ctk.CTk):
             self.events.put(("tools_failed", str(exc)))
 
     def _on_tools_ready(self, tools: Tools) -> None:
-        self.tools = tools
+        self.tools = self._with_login(tools)
         self._clear_status()
         self._background(self._silent_update)
         self._background(self._detail_worker)
@@ -848,7 +848,17 @@ class App(ctk.CTk):
         if self._settings_window and self._settings_window.winfo_exists():
             self._settings_window.focus()
             return
-        self._settings_window = SettingsWindow(self, self.tools, release=self.release, on_update=self.start_update)
+        self._settings_window = SettingsWindow(self, self.tools, release=self.release, on_update=self.start_update,
+                                               login=self.settings.youtube_login, on_login=self._set_login)
+
+    def _set_login(self, on: bool) -> None:
+        self.settings = replace(self.settings, youtube_login=on)
+        self._save_settings()
+        if self.tools:
+            self.tools = self._with_login(self.tools)  # vale para as próximas consultas
+
+    def _with_login(self, tools: Tools) -> Tools:
+        return replace(tools, cookies_browser="firefox" if self.settings.youtube_login else None)
 
     def _on_settings_saved(self, config: Config) -> None:
         self.settings = config

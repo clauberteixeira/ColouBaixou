@@ -18,6 +18,7 @@ class Config:
     maximized: bool = False
     playlist_size: tuple[int, int] | None = None
     default_kind: str = "video"  # "video" (MP4) ou "audio" (MP3)
+    youtube_login: bool = False  # usar a conta do YouTube aberta no Firefox
 
 
 def _default_path() -> Path:
@@ -37,7 +38,8 @@ def load_config(path: Path | None = None) -> Config:
         return Config(base_dir=Path(data["base_dir"]), window_size=_window_size(data.get("window_size")),
                       maximized=data.get("maximized") is True,
                       playlist_size=_window_size(data.get("playlist_size")),
-                      default_kind="audio" if data.get("default_kind") == "audio" else "video")
+                      default_kind="audio" if data.get("default_kind") == "audio" else "video",
+                      youtube_login=data.get("youtube_login") is True)
     except (OSError, ValueError, KeyError, TypeError):
         return Config(base_dir=default_base_dir())
 
@@ -45,7 +47,8 @@ def load_config(path: Path | None = None) -> Config:
 def save_config(cfg: Config, path: Path | None = None) -> None:
     path = path or _default_path()
     data = {"base_dir": str(cfg.base_dir), "window_size": cfg.window_size, "maximized": cfg.maximized,
-            "playlist_size": cfg.playlist_size, "default_kind": cfg.default_kind}
+            "playlist_size": cfg.playlist_size, "default_kind": cfg.default_kind,
+            "youtube_login": cfg.youtube_login}
     path.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
 
 

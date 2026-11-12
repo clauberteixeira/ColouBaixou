@@ -104,3 +104,11 @@ def test_unknown_default_kind_is_ignored_and_keeps_the_folder(tmp_path):
     p.write_text(json.dumps({"base_dir": str(tmp_path), "default_kind": "avi"}), encoding="utf-8")
     cfg = load_config(p)
     assert cfg.base_dir == tmp_path and cfg.default_kind == "video"
+
+
+def test_youtube_login_is_off_by_default_and_remembered(tmp_path):
+    from ytdl.config import Config, load_config, save_config
+    path = tmp_path / "c.json"
+    assert load_config(path).youtube_login is False
+    save_config(Config(base_dir=tmp_path, youtube_login=True), path)
+    assert load_config(path).youtube_login is True
