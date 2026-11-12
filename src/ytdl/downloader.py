@@ -15,7 +15,7 @@ from pathlib import Path
 from typing import Callable, Iterator
 
 from ytdl.clip import Clip, clip_suffix
-from ytdl.commands import audio_args, cut_args, ffmpeg_args, info_args, playlist_args, preview_args, video_args
+from ytdl.commands import audio_args, ffmpeg_args, info_args, playlist_args, preview_args, video_args
 from ytdl.errors import NO_SPACE, Cancelled, DownloadError, error_for_live, friendly_error
 from ytdl.formats import VideoInfo, VideoPlan, available_heights, best_audio, parse_info
 from ytdl.net import urlopen
@@ -102,6 +102,13 @@ def fetch_playlist(t: Tools, url: str, playlist_id: str, run=run_quiet) -> Playl
     return parse_playlist(json.loads(result.stdout), limit)
 
 
+def _part(size: int, clip: Clip | None, duration: int) -> int:
+    """Tamanho proporcional ao trecho (para conferir o espaço livre)."""
+    if not clip or not duration:
+        return size
+    return size * (clip[1] - clip[0]) // duration
+
+
 def cleanup_stale_temp(tmp_root: Path) -> None:
     if tmp_root.exists():
         for child in tmp_root.iterdir():
@@ -129,10 +136,11 @@ class Job:
         if clip:  # corte no ponto exato exige reconverter
             plan = replace(plan, transcode_video=True, transcode_audio=True)
         transcode = plan.transcode_video or plan.transcode_audio
-        self._check_space(base_dir, plan.est_bytes * (3 if transcode else 2))
+        self._check_space(base_dir, _part(plan.est_bytes, clip, info.duration) * (3 if transcode else 2))
         with self._workdir() as tmp:
             tracker = DownloadTracker({plan.video.format_id: plan.video.size, plan.audio.format_id: plan.audio.size})
-            self._run_ytdlp(video_args(self.tools, url, plan, tmp), tracker)
+            self._announce_clip(clip)
+            self._run_ytdlp(video_args(self.tools, url, plan, tmp, clip), tracker)
             merged = tmp / ("media.mkv" if transcode else "media.mp4")
             self._require(merged)
             final = self._convert(merged, tmp / "final.mp4", plan, info.duration, clip) if transcode else merged
@@ -140,14 +148,13 @@ class Job:
 
     def run_audio(self, url: str, info: VideoInfo, base_dir: Path, clip: Clip | None = None) -> Path:
         audio = best_audio(info)
-        self._check_space(base_dir, (audio.size or 0) * 3)
+        self._check_space(base_dir, _part(audio.size or 0, clip, info.duration) * 3)
         with self._workdir() as tmp:
             tracker = DownloadTracker({audio.format_id: audio.size})
-            self._run_ytdlp(audio_args(self.tools, url, audio.format_id, tmp), tracker)
+            self._announce_clip(clip)
+            self._run_ytdlp(audio_args(self.tools, url, audio.format_id, tmp, clip), tracker)
             mp3 = tmp / "media.mp3"
             self._require(mp3)
-            if clip:
-                mp3 = self._cut(mp3, tmp / "clip.mp3", clip)
             return self._deliver(mp3, base_dir, "audio", info, clip)
 
     def run_preview(self, info: VideoInfo, dest: Path) -> Path:
@@ -214,12 +221,10 @@ class Job:
         if rc != 0:
             raise DownloadError(friendly_error(output))
 
-    def _cut(self, src: Path, dst: Path, clip: Clip) -> Path:
-        rc, output = self._run(cut_args(self.tools.ffmpeg_dir / "ffmpeg.exe", src, dst, clip), lambda line: None)
-        if rc != 0:
-            raise DownloadError(friendly_error(output))
-        self._require(dst)
-        return dst
+    def _announce_clip(self, clip: Clip | None) -> None:
+        """Baixando só o pedaço o yt-dlp não informa o andamento; avisa o que está acontecendo."""
+        if clip:
+            self.on_progress(Progress("clip", None, None, None, None))
 
     def _convert(self, src: Path, dst: Path, plan: VideoPlan, duration: int, clip: Clip | None = None) -> Path:
         ffmpeg = self.tools.ffmpeg_dir / "ffmpeg.exe"

@@ -12,7 +12,7 @@ from typing import Callable
 import customtkinter as ctk
 from PIL import Image, ImageTk
 
-from ytdl.clip import Clip, as_clip, clip_label
+from ytdl.clip import Clip, as_clip
 from ytdl.downloader import Job
 from ytdl.errors import Cancelled, DownloadError
 from ytdl.formats import VideoInfo, format_duration
@@ -115,13 +115,11 @@ class TrimWindow(ctk.CTkToplevel):
                      wraplength=FRAME[0]).grid(row=5, column=0, sticky="ew", padx=16)
 
         buttons = ctk.CTkFrame(self, fg_color="transparent")
-        buttons.grid(row=6, column=0, sticky="w", padx=16, pady=(12, 4))
+        buttons.grid(row=6, column=0, sticky="w", padx=16, pady=(12, 16))
         ctk.CTkButton(buttons, text="⬇ Baixar trecho em MP4", height=36, fg_color=RED, hover_color=RED_HOVER,
                       command=lambda: self._add("video")).grid(row=0, column=0, padx=(0, 8))
         ctk.CTkButton(buttons, text="♪ Baixar trecho em MP3", height=36, fg_color=BLUE, hover_color=BLUE_HOVER,
                       command=lambda: self._add("audio")).grid(row=0, column=1)
-        self.done = ctk.CTkLabel(self, text="", anchor="w", text_color=MUTED)
-        self.done.grid(row=7, column=0, sticky="ew", padx=16, pady=(0, 12))
         self._show_times()
 
     def _show_times(self) -> None:
@@ -331,11 +329,10 @@ class TrimWindow(ctk.CTkToplevel):
     # --- ações -----------------------------------------------------------
 
     def _add(self, kind: Kind) -> None:
+        """Manda para a fila e fecha: o andamento aparece na fila da janela principal."""
         clip = as_clip(self.start, self.end, self.duration)
+        self.close()
         self.on_add(kind, clip, self.info)
-        what = f"trecho {clip_label(clip)}" if clip else "vídeo inteiro"
-        self.done.configure(text=f"✔ Adicionado à fila: {what} em {'MP4' if kind == 'video' else 'MP3'}. "
-                                 "Pode escolher outro trecho.")
 
     def close(self) -> None:
         self.stop()

@@ -43,3 +43,26 @@ def test_tall_window_does_not_go_behind_the_taskbar():
 def test_window_is_centered_inside_the_free_area():
     # barra de tarefas à esquerda ou em cima desloca a área livre
     assert center_geometry(800, 600, 1800, 1000, left=120, top=80) == (800, 600, 620, 280)
+
+
+def test_only_the_latest_progress_of_each_download_is_shown():
+    q = queue.Queue()
+    for kind, payload in [("q_progress", (1, "a")), ("q_progress", (2, "x")), ("q_done", (1, "f")),
+                          ("q_progress", (1, "b")), ("q_progress", (1, "c"))]:
+        q.put((kind, payload))
+    handled = []
+    drain_events(q, lambda kind, payload: handled.append((kind, payload)))
+    assert handled == [("q_progress", (2, "x")), ("q_done", (1, "f")), ("q_progress", (1, "c"))]
+
+
+def test_events_arriving_during_the_drain_wait_for_the_next_round():
+    q = queue.Queue()
+    q.put(("tick", 0))
+    handled = []
+
+    def handle(kind, payload):  # cada evento traz outro: sem limite, a tela nunca voltaria a responder
+        handled.append(payload)
+        q.put(("tick", payload + 1))
+
+    drain_events(q, handle)
+    assert handled == [0] and q.qsize() == 1

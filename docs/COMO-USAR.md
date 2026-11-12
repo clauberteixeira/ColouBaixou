@@ -51,9 +51,9 @@ Dicas:
 
 - Para ajuste fino, use as setas **← →** do teclado: mexem 1 segundo a última alça usada. A barra de **espaço** toca e pausa.
 - **De um ponto até o fim:** arraste só a alça do início.
-- Dá para baixar vários trechos do mesmo vídeo sem fechar a janela: cada um vira um arquivo, com o trecho no nome, por exemplo `Música (trecho 1m30s a 2m45s).mp3`. Na fila aparece `✂ 1:30–2:45`.
+- Ao clicar em baixar, a janela fecha e o andamento aparece na fila. Para outro trecho do mesmo vídeo, abra de novo: cada trecho vira um arquivo, com o trecho no nome, por exemplo `Música (trecho 1m30s a 2m45s).mp3`. Na fila aparece `✂ 1:30–2:45`.
 - Vídeos com mais de 30 minutos não têm a prévia com imagem e som, mas a linha do tempo funciona.
-- O programa baixa o vídeo e corta no ponto exato, por isso o trecho de um vídeo longo demora quase o mesmo que o vídeo inteiro.
+- O programa baixa só o pedaço escolhido e corta no ponto exato, tanto no MP4 quanto no MP3.
 
 ## Baixar vários vídeos de uma vez
 

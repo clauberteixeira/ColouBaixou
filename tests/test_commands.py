@@ -149,20 +149,18 @@ def test_ffmpeg_clip_seeks_and_limits_length():
     a = ffmpeg_args(Path("ffmpeg.exe"), SRC, DST, plan(tv=True, ta=True), "x264", clip=(5, 60))
     assert a.index("-ss") < a.index("-i")
     assert pair(a, "-ss") == "5" and pair(a, "-t") == "55"
+    assert pair(a, "-seek_timestamp") == "1"  # o pedaço baixado mantém os tempos do vídeo original
 
 
-def test_cut_mp3_copies_the_part_with_cover_and_tags():
-    from ytdl.commands import cut_args
-    a = cut_args(Path("ffmpeg.exe"), Path("in.mp3"), Path("out.mp3"), (5, 60))
-    assert pair(a, "-ss") == "5" and pair(a, "-t") == "55"
-    assert a.index("-ss") < a.index("-i")
-    assert pair(a, "-map") == "0" and pair(a, "-c") == "copy"
-    assert a[-1] == "out.mp3"
+
+def test_clip_downloads_only_the_part_keeping_original_times():
+    a = video_args(T, "U", plan(tv=True, ta=True), TMP, clip=(60, 90))
+    assert pair(a, "--download-sections") == "*60-91"
+    assert pair(a, "--downloader-args") == "ffmpeg_o:-copyts"
 
 
-def test_preview_reuses_the_info_and_picks_a_light_copy():
-    from ytdl.commands import preview_args
-    a = preview_args(T, Path("info.json"), TMP)
-    assert pair(a, "--load-info-json") == "info.json"  # não consulta o YouTube de novo
-    assert "240" in pair(a, "-f")
-    assert pair(a, "-o") == str(TMP / "preview.%(ext)s")
+def test_audio_clip_is_cut_exactly_while_converting_to_mp3():
+    a = audio_args(T, "U", "251", TMP, clip=(60, 90))
+    assert pair(a, "--download-sections") == "*60-91"
+    assert pair(a, "--postprocessor-args") == "ExtractAudio+ffmpeg_i:-seek_timestamp 1 -ss 60 -t 30"
+    assert "--download-sections" not in audio_args(T, "U", "251", TMP)

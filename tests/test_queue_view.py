@@ -130,3 +130,18 @@ def test_very_narrow_column_does_not_hang():
 
 def test_display_title_shows_the_clip():
     assert display_title(item(Status.QUEUED, title="Música", clip=(5, 60))) == "Música ✂ 0:05–1:00"
+
+
+def test_wrap_measures_each_text_only_once():
+    from ytdl.queue_view import CachedWrap
+    calls = []
+
+    def measure(text):
+        calls.append(text)
+        return len(text) * 7
+
+    wrap = CachedWrap(measure)
+    first = wrap("Hugo e Guilherme - TE AMO E NÃO TE QUERO ✂ 0:00–0:30", 120)
+    count = len(calls)
+    assert wrap("Hugo e Guilherme - TE AMO E NÃO TE QUERO ✂ 0:00–0:30", 120) == first
+    assert len(calls) == count
