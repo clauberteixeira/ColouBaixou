@@ -59,6 +59,14 @@ def video_args(t: Tools, url: str, plan: VideoPlan, tmp: Path) -> list[str]:
     ]
 
 
+def preview_args(t: Tools, info_json: Path, tmp: Path) -> list[str]:
+    """Cópia leve (até 240p, som mais leve) só para assistir; reaproveita a consulta já feita."""
+    return base_args(t) + [
+        "--load-info-json", str(info_json), "-f", "bv*[height<=240]+wa/w[height<=240]/w",
+        "--merge-output-format", "mkv", "-o", str(tmp / "preview.%(ext)s"),
+    ]
+
+
 def audio_args(t: Tools, url: str, audio_format_id: str, tmp: Path) -> list[str]:
     return base_args(t) + [
         "-f", audio_format_id, "-x", "--audio-format", "mp3", "--audio-quality", "320K",

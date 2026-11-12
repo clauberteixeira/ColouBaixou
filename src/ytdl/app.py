@@ -17,7 +17,7 @@ import customtkinter as ctk
 from PIL import Image
 
 from ytdl.about import APP_NAME, AUTHOR, AUTHOR_URL, REPO_URL, VERSION
-from ytdl.clip import clip_label, clip_range
+from ytdl.clip import Clip, clip_label
 from ytdl.config import Config, load_config, remember_playlist, remember_window, save_config
 from ytdl.downloader import Job, cleanup_stale_temp, fetch_info, fetch_oembed
 from ytdl.errors import (BOT_BLOCK, INVALID_LINK, NO_NODE_WARNING, Cancelled, DownloadError, FriendlyError,
@@ -33,6 +33,7 @@ from ytdl.queue_model import Kind, QueueModel, Status
 from ytdl.queue_view import KIND_LABEL, ROW_THUMB, QueueView
 from ytdl.settings import SettingsWindow
 from ytdl.tools import Tools, load_tools, update_ytdlp
+from ytdl.trim_window import TrimWindow
 from ytdl.updater import Release, check_latest, download_installer, install_args
 from ytdl.windowing import app_size, center_on_screen
 from ytdl.urls import canonical_url, extract_playlist_id, extract_video_id, extract_video_ids, should_autofill
@@ -87,6 +88,8 @@ class App(ctk.CTk):
         self._last_clip: str | None = None
         self._thumb = None  # mantém a referência da imagem viva
         self._settings_window: SettingsWindow | None = None
+        self._trim_window: TrimWindow | None = None
+        self._previews: dict[str, Path] = {}  # cópias leves já baixadas para escolher trecho
         self._asked_playlist: str | None = None
         self.release: Release | None = None  # nova versão do programa, se houver
         self._updating = False
@@ -151,14 +154,9 @@ class App(ctk.CTk):
         self.meta_label.grid(row=1, column=1, sticky="ew", padx=(0, 12))
         self.quality_menu = ctk.CTkOptionMenu(self.preview, values=[BEST], width=240)
         self.quality_menu.grid(row=2, column=1, sticky="w", padx=(0, 12), pady=(4, 4))
-        clip_row = ctk.CTkFrame(self.preview, fg_color="transparent")
-        clip_row.grid(row=3, column=1, sticky="w", padx=(0, 12), pady=(0, 12))
-        ctk.CTkLabel(clip_row, text="✂ Baixar só o trecho de").grid(row=0, column=0, padx=(0, 6))
-        self.clip_start = ctk.CTkEntry(clip_row, width=80, justify="center")
-        self.clip_start.grid(row=0, column=1)
-        ctk.CTkLabel(clip_row, text="até").grid(row=0, column=2, padx=6)
-        self.clip_end = ctk.CTkEntry(clip_row, width=80, justify="center")
-        self.clip_end.grid(row=0, column=3)
+        ctk.CTkButton(self.preview, text="✂ Baixar só um trecho…", width=240, fg_color=GRAY,
+                      text_color=("gray10", "gray90"), hover_color=GRAY_HOVER,
+                      command=self._open_trim).grid(row=3, column=1, sticky="w", padx=(0, 12), pady=(0, 12))
         self.preview.grid_remove()
 
         buttons = ctk.CTkFrame(self, fg_color="transparent")
@@ -487,10 +485,6 @@ class App(ctk.CTk):
         self.quality_menu.set(labels[0])
         self.title_label.configure(text=info.title)
         self.meta_label.configure(text=f"{info.channel} · {format_duration(info.duration)} · até {top}")
-        # começa com o vídeo inteiro; mudar os tempos baixa só a parte escolhida
-        for entry, value in ((self.clip_start, "0:00"), (self.clip_end, format_duration(info.duration))):
-            entry.delete(0, "end")
-            entry.insert(0, value)
         if image:
             self._thumb = ctk.CTkImage(light_image=image, dark_image=image, size=THUMB_SIZE)
             self.thumb_label.configure(image=self._thumb)
@@ -532,17 +526,24 @@ class App(ctk.CTk):
         self._render_queue()
         return added, duplicates, downloaded
 
-    def _add_preview(self, kind: Kind) -> None:
+    def _open_trim(self) -> None:
         if not self.info:
             return
-        info = self.info
-        try:
-            clip = clip_range(self.clip_start.get(), self.clip_end.get(), info.duration)
-        except ValueError as exc:
-            self._status(str(exc), True)
+        if self._trim_window and self._trim_window.winfo_exists():
+            if self._trim_window.info.id == self.info.id:
+                self._trim_window.focus()
+                return
+            self._trim_window.close()
+        self._trim_window = TrimWindow(self, self.tools, self.info, app_data_dir() / "tmp" / "trecho",
+                                       self._previews, self._add_preview)
+
+    def _add_preview(self, kind: Kind, clip: Clip | None = None, info: VideoInfo | None = None) -> None:
+        info = info or self.info
+        if not info:
             return
         self._remember_kind(kind)
-        res = self.quality_map.get(self.quality_menu.get()) if kind == "video" else None
+        # a qualidade escolhida na prévia só vale para o vídeo que está nela
+        res = self.quality_map.get(self.quality_menu.get()) if kind == "video" and info is self.info else None
         # trecho: cada parte é um arquivo novo, então não confere o que já foi baixado
         existing = None if clip else self.downloaded_path(info.id, kind, info.channel, info.title)
         if existing:
@@ -862,6 +863,8 @@ class App(ctk.CTk):
             if not messagebox.askyesno(APP_TITLE, "Há downloads em andamento. Fechar e cancelar?", parent=self):
                 return
             self._stop_all_jobs()
+        if self._trim_window and self._trim_window.winfo_exists():
+            self._trim_window.close()  # para o som e a cópia leve que estiver baixando
         self._save_window()
         self.destroy()
 
