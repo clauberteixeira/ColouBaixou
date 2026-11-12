@@ -1,5 +1,9 @@
 # Novidades
 
+## 1.6.2 (12/11/2026)
+
+- **Campos de hora, minuto e segundo** para o início e o fim do trecho, junto com a linha do tempo. Digitar move as alças; arrastar as alças atualiza os campos.
+
 ## 1.6.1 (12/11/2026)
 
 - **Corrigido:** no MP3, o trecho não parava no fim escolhido. Agora MP3 e MP4 cortam exatamente no início e no fim.

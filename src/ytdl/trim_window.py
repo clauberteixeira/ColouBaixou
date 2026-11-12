@@ -12,7 +12,7 @@ from typing import Callable
 import customtkinter as ctk
 from PIL import Image, ImageTk
 
-from ytdl.clip import Clip, as_clip
+from ytdl.clip import Clip, as_clip, join_hms, split_hms
 from ytdl.downloader import Job
 from ytdl.errors import Cancelled, DownloadError
 from ytdl.formats import VideoInfo, format_duration
@@ -71,9 +71,10 @@ class TrimWindow(ctk.CTkToplevel):
         self._job: Job | None = None
         self._build()
         self.protocol("WM_DELETE_WINDOW", self.close)
-        self.bind("<Left>", lambda e: self.timeline.nudge(-1))
-        self.bind("<Right>", lambda e: self.timeline.nudge(1))
-        self.bind("<space>", lambda e: self.toggle_play())
+        # atalhos só fora dos campos de tempo (lá as setas e o espaço servem para digitar)
+        self.bind("<Left>", lambda e: self._typing() or self.timeline.nudge(-1))
+        self.bind("<Right>", lambda e: self._typing() or self.timeline.nudge(1))
+        self.bind("<space>", lambda e: self._typing() or self.toggle_play())
         center_on_screen(self)
         self.transient(master)
         self.after(TICK_MS, self._tick)
@@ -108,24 +109,70 @@ class TrimWindow(ctk.CTkToplevel):
         bg = self._apply_appearance_mode(self.cget("fg_color"))
         self.timeline = Timeline(self, self.duration, self._on_range, self._on_seek, bg=bg)
         self.timeline.grid(row=3, column=0, sticky="ew", padx=16, pady=(4, 0))
+        fields = ctk.CTkFrame(self, fg_color="transparent")
+        fields.grid(row=4, column=0, sticky="w", padx=16, pady=(6, 0))
+        self.fields = {"start": self._time_fields(fields, "Início", "start", 0),
+                       "end": self._time_fields(fields, "Fim", "end", 1)}
         self.range_label = ctk.CTkLabel(self, text="", anchor="w")
-        self.range_label.grid(row=4, column=0, sticky="ew", padx=16)
-        ctk.CTkLabel(self, text="Arraste as alças azuis até o início e o fim. Setas ← → ajustam 1 segundo; "
-                                "espaço toca/pausa.", text_color=MUTED, anchor="w", justify="left",
-                     wraplength=FRAME[0]).grid(row=5, column=0, sticky="ew", padx=16)
+        self.range_label.grid(row=5, column=0, sticky="ew", padx=16, pady=(4, 0))
+        ctk.CTkLabel(self, text="Arraste as alças azuis ou digite hora, minuto e segundo (Enter confirma). "
+                                "Setas ← → ajustam 1 segundo; espaço toca/pausa.", text_color=MUTED, anchor="w",
+                     justify="left", wraplength=FRAME[0]).grid(row=6, column=0, sticky="ew", padx=16)
 
         buttons = ctk.CTkFrame(self, fg_color="transparent")
-        buttons.grid(row=6, column=0, sticky="w", padx=16, pady=(12, 16))
+        buttons.grid(row=7, column=0, sticky="w", padx=16, pady=(12, 16))
         ctk.CTkButton(buttons, text="⬇ Baixar trecho em MP4", height=36, fg_color=RED, hover_color=RED_HOVER,
                       command=lambda: self._add("video")).grid(row=0, column=0, padx=(0, 8))
         ctk.CTkButton(buttons, text="♪ Baixar trecho em MP3", height=36, fg_color=BLUE, hover_color=BLUE_HOVER,
                       command=lambda: self._add("audio")).grid(row=0, column=1)
         self._show_times()
 
-    def _show_times(self) -> None:
+    def _time_fields(self, master, label: str, which: str, column: int) -> tuple[ctk.CTkEntry, ...]:
+        """Grupo "Início [h]:[mm]:[ss]"; Enter ou sair do campo aplica na linha do tempo."""
+        group = ctk.CTkFrame(master, fg_color="transparent")
+        group.grid(row=0, column=column, padx=(0, 28))
+        ctk.CTkLabel(group, text=label).grid(row=0, column=0, padx=(0, 8))
+        entries = []
+        for i, hint in enumerate(("hora", "min", "seg")):
+            if i:
+                ctk.CTkLabel(group, text=":").grid(row=0, column=2 * i, padx=2)
+            entry = ctk.CTkEntry(group, width=42, justify="center")
+            entry.grid(row=0, column=2 * i + 1)
+            ctk.CTkLabel(group, text=hint, text_color=MUTED, font=ctk.CTkFont(size=10)).grid(
+                row=1, column=2 * i + 1)
+            entry.bind("<Return>", lambda e: self._typed(which))
+            entry.bind("<FocusOut>", lambda e: self.after_idle(self._left_fields, which))
+            entries.append(entry)
+        return tuple(entries)
+
+    def _left_fields(self, which: str) -> None:
+        """Só aplica ao sair do grupo: indo da hora para o minuto, o tempo ainda está pela metade."""
+        try:
+            focus = self.focus_get()
+        except (KeyError, tkinter.TclError):  # foco num menu ou em outra janela
+            focus = None
+        if not any(focus is entry._entry for entry in self.fields[which]):
+            self._typed(which)
+
+    def _typed(self, which: str) -> None:
+        t = join_hms(*(e.get() for e in self.fields[which]))
+        if t is not None:
+            self.timeline.active = which
+            self.timeline.move(which, t)  # ajusta aos limites e avisa _on_range
+        self._show_times(force=which)  # número inválido ou fora do vídeo: os campos voltam ao valor certo
+
+    def _show_times(self, force: str | None = None) -> None:
         self.clock.configure(text=f"{format_duration(int(self.playhead))} / {format_duration(self.duration)}")
-        self.range_label.configure(text=f"Início {format_duration(self.start)}   ·   Fim {format_duration(self.end)}"
-                                        f"   ·   Trecho de {format_duration(self.end - self.start)}")
+        self.range_label.configure(text=f"Trecho de {format_duration(self.end - self.start)}")
+        for which, value in (("start", self.start), ("end", self.end)):
+            for entry, number in zip(self.fields[which], split_hms(value)):
+                text = f"{number:02d}" if entry is not self.fields[which][0] else str(number)
+                if entry.get() != text and (force == which or entry is not self.focus_get()):  # não atrapalha quem digita
+                    entry.delete(0, "end")
+                    entry.insert(0, text)
+
+    def _typing(self) -> bool:
+        return isinstance(self.focus_get(), tkinter.Entry)
 
     def _show(self, data: bytes) -> None:
         self._photo.paste(Image.frombuffer("RGB", FRAME, data, "raw", "RGB", 0, 1))
