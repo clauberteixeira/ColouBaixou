@@ -7,7 +7,7 @@ from typing import Callable
 
 import customtkinter as ctk
 
-from ytdl.login import FIREFOX_DOWNLOAD, YOUTUBE_LOGIN, firefox_status, open_in_firefox
+from ytdl.login import FIREFOX_DOWNLOAD, YOUTUBE_LOGIN, firefox_status, install_firefox, open_in_firefox
 from ytdl.about import APP_NAME, AUTHOR, AUTHOR_URL, GUIDE_URL, ISSUES_URL, REPO_URL, VERSION
 from ytdl.tools import Tools, ytdlp_version
 from ytdl.updater import Release
@@ -18,11 +18,15 @@ OK_COLOR = ("#188038", "#81c995")
 MUTED = ("gray35", "gray65")
 WARN_COLOR = ("#b06000", "#fdd663")
 LOGIN_TEXT = {
-    "no_firefox": ("O Firefox não está instalado. Instale, entre no YouTube por ele e volte aqui.", WARN_COLOR),
-    "no_login": ("O Firefox não tem login no YouTube. Clique em Entrar, faça o login e depois em Verificar.",
+    "no_firefox": ("O login usa o Firefox, que não está instalado. Clique em Instalar o Firefox: ele instala "
+                   "sozinho e já abre o login do Google.", WARN_COLOR),
+    "no_login": ("Falta entrar na conta. Clique em Entrar com a conta Google e faça o login na janela do Firefox.",
                  WARN_COLOR),
     "ok": ("✔ Conta do YouTube encontrada no Firefox.", OK_COLOR),
 }
+LOGIN_BUTTON = {"no_firefox": "Instalar o Firefox", "no_login": "Entrar com a conta Google",
+                "ok": "Entrar com outra conta Google"}
+WATCH_MS = 3000  # depois de abrir o login, confere sozinho a cada 3 s
 GRAY = ("gray75", "gray30")
 GRAY_HOVER = ("gray65", "gray40")
 
@@ -61,6 +65,8 @@ class SettingsWindow(ctk.CTkToplevel):
         ctk.CTkButton(actions, text="Verificar de novo", width=140, fg_color=GRAY, text_color=("gray10", "gray90"),
                       hover_color=GRAY_HOVER, command=self._check_login).grid(row=0, column=1)
         self._login_status = "no_firefox"
+        self._login_events: queue.Queue = queue.Queue()
+        self._watching = False
         self._check_login()
 
         # atualizações
@@ -105,12 +111,58 @@ class SettingsWindow(ctk.CTkToplevel):
         self._login_status = firefox_status()
         text, color = LOGIN_TEXT[self._login_status]
         self.login_label.configure(text=text, text_color=color)
-        self.login_btn.configure(text="Baixar o Firefox" if self._login_status == "no_firefox"
-                                 else "Entrar no YouTube pelo Firefox")
+        self.login_btn.configure(text=LOGIN_BUTTON[self._login_status], state="normal")
 
     def _login_action(self) -> None:
-        if self._login_status == "no_firefox" or not open_in_firefox(YOUTUBE_LOGIN):
+        if self._login_status != "no_firefox":
+            self._open_login()
+            return
+        self.login_btn.configure(state="disabled")
+        self.login_label.configure(text="Instalando o Firefox… leva 1 ou 2 minutos. Não feche esta janela.",
+                                   text_color=MUTED)
+        threading.Thread(target=lambda: self._login_events.put(install_firefox()), daemon=True).start()
+        self.after(500, self._wait_install)
+
+    def _wait_install(self) -> None:
+        if not self.winfo_exists():
+            return
+        try:
+            installed = self._login_events.get_nowait()
+        except queue.Empty:
+            self.after(500, self._wait_install)
+            return
+        self._check_login()
+        if installed and self._login_status != "no_firefox":
+            self._open_login()
+        else:
             webbrowser.open(FIREFOX_DOWNLOAD)
+            self.login_label.configure(text="Não deu para instalar sozinho. Abri a página do Firefox: instale por lá "
+                                            "e depois clique em Verificar de novo.", text_color=WARN_COLOR)
+
+    def _open_login(self) -> None:
+        """Abre o login do Google no Firefox e fica conferindo até a conta aparecer."""
+        if not open_in_firefox(YOUTUBE_LOGIN):
+            webbrowser.open(FIREFOX_DOWNLOAD)
+            return
+        self.login_label.configure(text="Faça o login na janela do Firefox que abriu. Este aviso muda sozinho "
+                                        "quando a conta for encontrada.", text_color=MUTED)
+        if not self._watching:
+            self._watching = True
+            self.after(WATCH_MS, self._watch_login)
+
+    def _watch_login(self) -> None:
+        if not self.winfo_exists():
+            return
+        if firefox_status() != "ok":
+            self.after(WATCH_MS, self._watch_login)
+            return
+        self._watching = False
+        self._check_login()
+        if not self.login_switch.get():  # quem fez o login quer usar a conta: liga sozinho
+            self.login_switch.select()
+            self.on_login(True)
+        self.login_label.configure(text="✔ Conta encontrada. Pronto: o programa já está usando a conta.",
+                                   text_color=OK_COLOR)
 
     def _toggle_login(self) -> None:
         self.on_login(bool(self.login_switch.get()))

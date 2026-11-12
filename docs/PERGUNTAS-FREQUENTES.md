@@ -16,7 +16,7 @@ O YouTube limita quem faz muitos downloads seguidos da mesma internet. A fila **
 
 Para evitar o bloqueio, o programa controla o ritmo: as 3 primeiras consultas passam na hora e, depois, vai uma a cada 20 segundos. Por isso às vezes aparece *Aguardando 12 s (evita bloqueio do YouTube)*. É normal: a fila continua sozinha.
 
-Para praticamente acabar com o bloqueio, entre com uma conta do YouTube: em **⚙ Configurações → Conta do YouTube**, siga os passos (precisa do Firefox) e ligue *Usar a conta do YouTube aberta no Firefox*. Use uma conta secundária, criada só para isso: o YouTube pode suspender contas usadas por programas de download.
+Para praticamente acabar com o bloqueio, entre com uma conta do YouTube: em **⚙ Configurações → Conta do YouTube**, clique em **Instalar o Firefox** (ou **Entrar com a conta Google**, se já tiver o Firefox) e faça o login. O programa percebe a conta e liga a opção sozinho. Use uma conta secundária, criada só para isso: o YouTube pode suspender contas usadas por programas de download.
 
 ### O programa disse "Você já baixou este vídeo".
 

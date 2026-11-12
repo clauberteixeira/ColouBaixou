@@ -43,3 +43,31 @@ def test_broken_database_is_not_a_crash(tmp_path):
     (tmp_path / "x.default").mkdir()
     (tmp_path / "x.default" / "cookies.sqlite").write_bytes(b"not a database")
     assert firefox_status(tmp_path) == "no_login"
+
+
+def test_install_firefox_quietly_for_this_user_only():
+    from ytdl.login import install_firefox
+    calls = []
+
+    class Done:
+        returncode = 0
+
+    assert install_firefox(run=lambda args, **kw: calls.append(args) or Done()) is True
+    args = calls[0]
+    assert args[:2] == ["winget", "install"]
+    assert args[args.index("--id") + 1] == "Mozilla.Firefox.pt-BR"
+    assert args[args.index("--scope") + 1] == "user"  # sem pedir permissão de administrador
+    assert "--silent" in args and "--accept-package-agreements" in args
+
+
+def test_install_firefox_without_winget_says_no():
+    from ytdl.login import install_firefox
+
+    def missing(args, **kw):
+        raise FileNotFoundError("winget")
+
+    class Failed:
+        returncode = 1
+
+    assert install_firefox(run=missing) is False
+    assert install_firefox(run=lambda args, **kw: Failed()) is False
